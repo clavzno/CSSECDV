@@ -11,8 +11,10 @@
   --border-gray: #AFAFAF;
 }
 
-/* for fonts see layout.tsx under this file;
-* turns this into tailwind tokens */
+/* 
+* for fonts see layout.tsx under this file
+* @theme turns this into tailwind tokens 
+*/
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
