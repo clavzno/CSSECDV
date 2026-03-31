@@ -1,3 +1,4 @@
+
 import Sidebar from '@/components/Sidebar';
 
 // TODO: implement the different dashboard shit
@@ -25,7 +26,7 @@ export default function Dashboard({ user_role = "admin" }) {
             <Sidebar role={user_role} />
             <main className="ml-64 min-h-screen bg-background p-6">
                 {/* children */}
-                {renderContent}
+                {renderContent()}
             </main>
         </div>
     );
