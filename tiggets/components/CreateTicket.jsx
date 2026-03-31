@@ -1,0 +1,110 @@
+import { CircleX, Save, FileText, X } from 'lucide-react';
+
+const inquiryTypes = ['Bug Report', 'Account Issue', 'Service Request', 'Other'];
+
+export default function CreateTicket() {
+	return (
+		<section className="min-h-[calc(100vh-3rem)]">
+			<h1 className="mb-6 text-5xl font-semibold text-zinc-800 sm:text-6xl">Create a New Ticket</h1>
+
+			<div className="rounded-md border border-zinc-300 bg-div-gray px-8 py-9 shadow-sm sm:px-10">
+				<div className="mb-5 flex items-start justify-end">
+					<button
+						type="button"
+						className="inline-flex items-center gap-2 text-lg text-zinc-500 transition hover:text-zinc-700"
+					>
+						<span>Cancel ticket</span>
+						<CircleX className="h-5 w-5" />
+					</button>
+				</div>
+
+				<form className="space-y-9">
+					<div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(180px,240px)_minmax(260px,460px)] md:items-center">
+						<label htmlFor="subject" className="text-3xl font-medium text-zinc-700">
+							Subject Header
+						</label>
+						<input
+							id="subject"
+							type="text"
+							placeholder="Enter Header"
+							className="h-11 w-full rounded-md border border-zinc-400 bg-zinc-100 px-4 text-base text-zinc-700 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none"
+						/>
+					</div>
+
+					<div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(180px,240px)_minmax(220px,300px)] md:items-center">
+						<label htmlFor="inquiry" className="text-3xl font-medium text-zinc-700">
+							Type of Inquiry
+						</label>
+						<select
+							id="inquiry"
+							className="h-11 w-full appearance-none rounded-md border border-zinc-400 bg-zinc-100 px-4 pr-10 text-base text-zinc-500 focus:border-zinc-500 focus:outline-none"
+							style={{
+								backgroundImage:
+									"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 7.5L10 12.5L15 7.5' stroke='%23717171' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")",
+								backgroundRepeat: 'no-repeat',
+								backgroundSize: '1rem 1rem',
+								backgroundPosition: 'right 0.75rem center',
+							}}
+							defaultValue=""
+						>
+							<option value="" disabled>
+								Select
+							</option>
+							{inquiryTypes.map((type) => (
+								<option key={type} value={type}>
+									{type}
+								</option>
+							))}
+						</select>
+					</div>
+
+					<div>
+						<label htmlFor="body" className="mb-3 block text-3xl font-medium text-zinc-700">
+							Ticket body
+						</label>
+						<textarea
+							id="body"
+							rows={8}
+							placeholder="Enter Body"
+							className="w-full rounded-md border border-zinc-400 bg-zinc-100 p-4 text-base text-zinc-700 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none"
+						/>
+					</div>
+
+					<div>
+						<p className="mb-3 text-3xl font-medium text-zinc-700">Attachments</p>
+						<div className="flex flex-col items-start gap-3">
+							<button
+								type="button"
+								className="flex h-11 w-full max-w-[280px] items-center gap-2 rounded-md border border-zinc-400 bg-zinc-100 px-3 text-base text-zinc-400 transition hover:text-zinc-600"
+							>
+								<FileText className="h-5 w-5" />
+								<span>Click to upload file...</span>
+							</button>
+
+							<div className="flex h-11 w-full max-w-[280px] items-center justify-between rounded-md border border-zinc-400 bg-zinc-100 px-3 text-base text-zinc-400">
+								<span>ThisIsAnUploadedFile.pdf</span>
+								<button
+									type="button"
+									aria-label="Remove uploaded file"
+									className="text-zinc-400 transition hover:text-zinc-600"
+								>
+									<X className="h-4 w-4" />
+								</button>
+							</div>
+						</div>
+					</div>
+
+					<div className="flex justify-end pt-4">
+						<button
+							type="submit"
+							className="inline-flex h-11 items-center gap-2 rounded-md bg-tiggets-lightgreen px-5 text-base font-medium text-white transition hover:bg-[#2b4a3c]"
+						>
+							<Save className="h-5 w-5" />
+							<span>Save and Post</span>
+						</button>
+					</div>
+				</form>
+			</div>
+		</section>
+	);
+}

@@ -11,6 +11,7 @@ import Tiggets from '@/public/Tiggets.png';
 
 // redirects (for logout)
 import { useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
 const sidebarLinks = {
     admin: [
@@ -39,6 +40,7 @@ export default function Sidebar({ role }) {
     // dynamic sidebar based on role
     const links = sidebarLinks[role] ?? [];
     const router = useRouter();
+    const pathname = usePathname();
 
     // TODO: handle logout properly
     function handleLogout(event) {
@@ -48,27 +50,30 @@ export default function Sidebar({ role }) {
     }
 
     return (
-        <aside className="fixed left-0 top-0 h-screen w-64 bg-tiggets-green px-6 py-8 text-background shadow-lg flex flex-col">
-            <div className="mb-0.5 flex justify-center">
+        <aside className="fixed left-0 top-0 z-30 flex h-screen w-56 flex-col bg-gradient-to-b from-[#173329] to-[#0f261d] px-4 py-7 text-background shadow-xl">
+            <div className="mb-8 flex justify-center">
                 <Image
                     src={Tiggets}
                     alt="Tiggets logo"
-                    width={160}
+                    width={170}
                     height={60}
-                    className='h-auto py-3'
+                    className='h-auto py-2'
                     priority
                 />
             </div>
 
-            <nav className="flex flex-col gap-1">
+            <nav className="flex flex-col gap-1.5">
                 {links.map((link) => {
                     const Icon = link.icon;
+                    const isActive = pathname === link.href;
 
                     return (
                         <Link key={link.href} href={link.href}>
-                            <div className="flex w-full items-center gap-4 rounded-md bg-tiggets-green px-4 py-3 text-white transition hover:bg-tiggets-lightgreen hover:cursor-pointer">
-                                <Icon className="h-8 w-8" />
-                                <span className="font-text text-sm font-medium">
+                            <div className={`flex w-full items-center gap-3 rounded-md px-3.5 py-2.5 text-white transition hover:cursor-pointer ${
+                                isActive ? 'bg-tiggets-lightgreen' : 'hover:bg-tiggets-lightgreen/70'
+                            }`}>
+                                <Icon className="h-5 w-5" />
+                                <span className="font-text text-base font-medium">
                                     {link.label}
                                 </span>
                             </div>
@@ -76,14 +81,15 @@ export default function Sidebar({ role }) {
                     );
                 })}
             </nav>
-            <div className="mt-auto pt-4">
+
+            <div className="mt-auto border-t border-white/15 pt-2">
                 <button
                     type="button"
-                    className="flex w-full items-center gap-4 rounded-md px-4 py-3 text-white transition hover:bg-tiggets-lightgreen hover:cursor-pointer"
+                    className="flex w-full items-center gap-3 rounded-md px-3.5 py-2.5 text-white transition hover:cursor-pointer hover:bg-tiggets-lightgreen/70"
                     onClick={handleLogout}
                 >
-                    <LogOut className="h-8 w-8" />
-                    <span className="font-text text-sm font-medium">Logout</span>
+                    <LogOut className="h-5 w-5" />
+                    <span className="font-text text-base font-medium">Logout</span>
                 </button>
             </div>
         </aside>
