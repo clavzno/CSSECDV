@@ -5,6 +5,7 @@ import SystemLogsFilter from '@/components/SystemLogsFilter';
 import SystemLogsModal from '@/components/SystemLogsModal';
 
 // page.tsx for system logs handles all the server-side fetching and passes it down to this component
+// this will not render properly and will have horizontal scroll on some screens, user may have to zoom out
 export default function SystemLogs({ session, logs }) {
     // filter states
     const [showFilters, setShowFilters] = useState(false);
@@ -139,57 +140,61 @@ export default function SystemLogs({ session, logs }) {
                 />
 
                 {/** Logs */}
-                <table className="w-full text-left border-collapse bg-background text-sm">
-                    <thead>
-                        <tr className="bg-div-gray border-b border-border-gray">
-                            <th className="py-4 px-6 font-semibold text-center">Log ID #</th>
-                            <th className="py-4 px-6 font-semibold text-center">Timestamp</th>
-                            <th className="py-4 px-6 font-semibold text-center">User ID #</th>
-                            <th className="py-4 px-6 font-semibold text-center">Action Type</th>
-                            <th className="py-4 px-6 font-semibold">Details</th>
-                            <th className="py-4 px-6 font-semibold text-center">Status</th>
-                            <th className="py-4 px-6 font-semibold text-center">Priority</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredLogs.map((log) => (
-                            <tr
-                                key={`${log.logId}-${log.timestamp}-${log.priorityLevel}`}
-                                onClick={() => setSelectedLog(log)}
-                                className="border-b border-border-gray hover:bg-div-gray/30 transition-colors bg-white cursor-pointer"
-                            >
-                                <td className="py-4 px-6 text-center font-medium">
-                                    {log.logId}
-                                </td>
-                                <td className="py-4 px-6 text-center whitespace-nowrap text-gray-600">
-                                    {new Date(log.timestamp).toLocaleString()}
-                                </td>
-                                <td className="py-4 px-6 text-center">
-                                    {log.userId}
-                                </td>
-                                <td className="py-4 px-6 text-center">
-                                    {log.actionType}
-                                </td>
-                                <td className="py-4 px-6">
-                                    {/** cut off if it's too long */}
-                                    <div className="max-w-80 truncate">
-                                        {log.details}
-                                    </div>
-                                </td>
-                                <td className="py-4 px-6 text-center">
-                                    <span className={`px-4 py-1.5 rounded-full text-xs font-medium border ${setTicketStatusColor(log.ticketStatus)}`}>
-                                        {log.ticketStatus?.toUpperCase()}
-                                    </span>
-                                </td>
-                                <td className="py-4 px-6 text-center">
-                                    <span className={`px-4 py-1.5 rounded-full text-xs font-medium border ${setPriorityStatusColor(log.priorityLevel)}`}>
-                                        {log.priorityLevel?.toUpperCase()}
-                                    </span>
-                                </td>
+                {/** overflow-x-auto allows the horizontal scroll */}
+                <div className="w-full md:overflow-x-auto">
+                    {/** "min-w-225 w-full text-left border-collapse bg-background text-xs md:text-sm" */}
+                    <table className="w-full table-auto border-collapse bg-background text-xs md:text-sm">
+                        <thead>
+                            <tr className="bg-div-gray border-b border-border-gray">
+                                <th className="py-4 px-6 font-semibold text-center">Log ID #</th>
+                                <th className="py-4 px-6 font-semibold text-center">Timestamp</th>
+                                <th className="py-4 px-6 font-semibold text-center">User ID #</th>
+                                <th className="py-4 px-6 font-semibold text-center">Action Type</th>
+                                <th className="py-4 px-6 font-semibold">Details</th>
+                                <th className="py-4 px-6 font-semibold text-center">Status</th>
+                                <th className="py-4 px-6 font-semibold text-center">Priority</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {filteredLogs.map((log) => (
+                                <tr
+                                    key={`${log.logId}-${log.timestamp}-${log.priorityLevel}`}
+                                    onClick={() => setSelectedLog(log)}
+                                    className="border-b border-border-gray hover:bg-div-gray/30 transition-colors bg-white cursor-pointer"
+                                >
+                                    <td className="py-4 px-6 text-center font-medium">
+                                        {log.logId}
+                                    </td>
+                                    <td className="py-4 px-6 text-center whitespace-nowrap text-gray-600">
+                                        {new Date(log.timestamp).toLocaleString()}
+                                    </td>
+                                    <td className="py-4 px-6 text-center">
+                                        {log.userId}
+                                    </td>
+                                    <td className="py-4 px-6 text-center">
+                                        {log.actionType}
+                                    </td>
+                                    <td className="py-4 px-6">
+                                        {/** cut off if it's too long */}
+                                        <div className="max-w-80 truncate">
+                                            {log.details}
+                                        </div>
+                                    </td>
+                                    <td className="py-4 px-6 text-center">
+                                        <span className={`px-4 py-1.5 rounded-full text-xs font-medium border ${setTicketStatusColor(log.ticketStatus)}`}>
+                                            {log.ticketStatus?.toUpperCase()}
+                                        </span>
+                                    </td>
+                                    <td className="py-4 px-6 text-center">
+                                        <span className={`px-4 py-1.5 rounded-full text-xs font-medium border ${setPriorityStatusColor(log.priorityLevel)}`}>
+                                            {log.priorityLevel?.toUpperCase()}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
                 <div className="text-center py-6 text-sm font-medium bg-div-gray text-foreground border-t border-border-gray" />
             </div>
             {selectedLog && (

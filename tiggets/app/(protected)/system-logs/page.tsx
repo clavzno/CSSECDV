@@ -62,7 +62,7 @@ export default async function SystemLogsPage() {
   const logs = await getSystemLogs();
 
   return (
-    <main className="ml-56 flex-1 p-8 overflow-y-auto">
+    <main className="ml-56 flex-1 min-w-0 p-8 overflow-y-auto">
       <SystemLogs session={session} logs={logs} />
     </main>
   );
