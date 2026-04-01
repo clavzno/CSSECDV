@@ -15,7 +15,10 @@ const inquiryTypes = [
 export default function CreateTicket() {
 	return (
 		<section className="min-h-[calc(100vh-3rem)]">
-			<h1 className="mb-6 text-5xl font-semibold text-zinc-800 sm:text-6xl">Create a New Ticket</h1>
+			<div className="w-full font-text text-foreground">
+                {/* Header */}
+                <h1 className="text-3xl font-bold mb-8">Create a Ticket</h1>
+            </div>
 
 			<div className="rounded-md border border-zinc-300 bg-div-gray px-8 py-9 shadow-sm sm:px-10">
 				<div className="mb-5 flex items-start justify-end">

@@ -26,7 +26,7 @@ export default async function ProtectedLayout({
         <>
             {/* All pages will now have a sidebar */}
             <Sidebar role={session.role} />
-                {children}
+            {children}
         </>
     );
 }

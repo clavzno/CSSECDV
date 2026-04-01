@@ -10,7 +10,7 @@ import Image from 'next/image';
 import Tiggets from '@/public/Tiggets.png';
 
 // redirects (for logout)
-import { useRouter } from 'next/navigation';
+// import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
 
 const sidebarLinks = {
@@ -37,7 +37,7 @@ const sidebarLinks = {
 };
 
 export default function Sidebar({ role }) {
-    const router = useRouter();
+    // const router = useRouter();
     const pathname = usePathname();
 
     // if there's no role that means there's no session, return NO links

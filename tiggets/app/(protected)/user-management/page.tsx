@@ -11,8 +11,8 @@ export default async function UserManagementPage() {
       }
     
     return(
-        <>
-        <h1>UserManagementPage</h1>
-        </>
+        <main className="ml-56 min-h-screen bg-background p-6">
+            <h1>Content Here</h1>
+        </main>
     );
 }
