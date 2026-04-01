@@ -12,7 +12,10 @@ export default async function SettingsPage() {
 
   return (
     <main className="ml-56 min-h-screen bg-background p-6">
-      <h1>Settings Content Here</h1>
+      {/** Header */}
+      <div className="w-full font-text text-foreground">
+        <h1 className="text-3xl font-bold mb-8">Settings Header</h1>
+      </div>
     </main>
   );
 }
