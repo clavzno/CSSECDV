@@ -1,16 +1,28 @@
 const mockLogs = [
     {
-        id: '#12313',
-        eventType: 'Authentication',
-        status: 'Success',
+        logId: '1212121',
         timestamp: '2026-04-01T08:33:26.173+00:00',
-        details: 'User logged in successfully'
+        userId: 'manager',
+        actionType: 'LOGOUT',
+        ticketStatus: 'N/A',
+        details: 'admin successfully logged out via manual logout.',
+        priorityLevel: 'info',
+    },
+    {
+        logId: '1212121',
+        timestamp: '2026-04-01T08:33:26.173+00:00',
+        userId: 'manager',
+        actionType: 'LOGOUT',
+        ticketStatus: 'N/A',
+        details: 'admin successfully logged out via manual logout.',
+        priorityLevel: 'info',
     },
 ]
 
 export default async function SystemLogs({ role }) {
-    async function getSystemLogs() {
 
+    async function getSystemLogs() {
+        console.log("pass");
     }
 
     // TODO: call a security function here that checks the role
@@ -26,6 +38,7 @@ export default async function SystemLogs({ role }) {
             </div>
 
             {/** List of Tickets */}
+
         </div>
     );
 }
