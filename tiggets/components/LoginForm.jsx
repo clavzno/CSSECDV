@@ -34,6 +34,8 @@ export default function LoginForm() {
         throw new Error(data.error || 'Login failed');
       }
 
+      window.alert(data.lastLoginMessage);
+
       // Save the user data (including role) locally so the Dashboard can read it
       localStorage.setItem('user', JSON.stringify(data.user));
 
