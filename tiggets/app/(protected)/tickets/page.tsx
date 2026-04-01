@@ -1,27 +1,35 @@
 import { redirect } from 'next/navigation';
 import { getCurrentSession } from '@/lib/rbac';
-import CreateTicket from '@/components/CreateTicket';
+import Sidebar from '@/components/Sidebar';
+import ManagerTickets from '@/components/ManagerTickets';
 
-/**
- * if customer = show list of tickets only belonging to the customer
- * if admin/manager show all tickets, click to go to specific ticket id page -> see page.tsx in [ticketid]
- */
 export default async function TicketsPage() {
   const session = await getCurrentSession();
 
-  // If no session exists, fail securely and redirect to login
   if (!session) {
     redirect('/');
   }
 
-  // Optional: If you want to enforce that Admins can't even see this page
-  // import { isAuthorized } from '@/lib/rbac';
-  // if (!isAuthorized(session.role, '/tickets')) redirect('/dashboard');
+  function renderRoleSpecificView() {
+    switch (session.role?.toLowerCase()) {
+      case "manager":
+        return <ManagerTickets role={session.role} />;
+      case "admin":
+        return <h1>blank</h1>;
+      case "customer":
+        return <h1>blank</h1>;
+      default:
+        return <div>No Access. Role: {session.role}</div>;
+    }
+  }
 
-  // TODO: CreateTicket is a separate page for customers only, remove this when it's done
   return (
-    <main className="ml-56 min-h-screen bg-background p-6">
-      <CreateTicket />
-    </main>
+    <div className="flex h-screen bg-background font-text text-foreground">
+      <Sidebar role={session.role} />
+      
+      <main className="ml-56 flex-1 p-8 overflow-y-auto">
+        {renderRoleSpecificView()}
+      </main>
+    </div>
   );
 }
