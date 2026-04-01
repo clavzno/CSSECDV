@@ -80,7 +80,9 @@ export default function TicketList({ role }) {
                         <th className="py-4 px-6 font-semibold">Type</th>
                         <th className="py-4 px-6 font-semibold text-center">Status</th>
                         <th className="py-4 px-6 font-semibold text-center">Last Update</th>
+                        {isManager && (
                         <th className="py-4 px-6" />
+                        )}
                     </tr>
                 </thead>
                 {/* last th is the Header for Edit button, moved this down here because of the Hydration Error */}
