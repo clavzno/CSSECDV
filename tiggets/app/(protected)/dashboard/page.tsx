@@ -1,23 +1,16 @@
-// redirects
 import { redirect } from 'next/navigation';
-
-// content
+import { getCurrentSession } from '@/lib/rbac';
 import Dashboard from '@/components/Dashboard';
 
-// placeholder, should call some mongodb shit
-async function getCurrentUser() {
-  return {
-    username: 'admin',
-    role: 'admin',
-  };
-}
-
 export default async function DashboardPage() {
-  const user = await getCurrentUser();
+  // 1. Call your centralized RBAC file
+  const session = await getCurrentSession();
 
-  if (!user) {
+  // 2. Fail securely if no session
+  if (!session) {
     redirect('/');
   }
 
-  return (<Dashboard />);
+  // 3. Pass the verified role to the client component
+  return <Dashboard role={session.role} />;
 }

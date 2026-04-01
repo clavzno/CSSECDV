@@ -1,7 +1,4 @@
-
 import Sidebar from '@/components/Sidebar';
-
-// TODO: implement the different dashboard shit
 import AdminDashboard from '@/components/AdminDashboard';
 import ManagerDashboard from '@/components/ManagerDashboard';
 import CustomerDashboard from '@/components/CustomerDashboard';
@@ -17,7 +14,7 @@ export default function Dashboard({ user_role = "manager" }) {
             case "customer":
                 return <CustomerDashboard />;
             default:
-                return <h1>Content unvailable; Please log in.</h1>;
+                return <h1>Content unavailable; Please log in.</h1>;
         }
     }
 
@@ -25,7 +22,6 @@ export default function Dashboard({ user_role = "manager" }) {
         <div>
             <Sidebar role={user_role} />
             <main className="ml-64 min-h-screen bg-background p-6">
-                {/* children */}
                 {renderContent()}
             </main>
         </div>
