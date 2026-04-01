@@ -37,14 +37,16 @@ export default function SystemLogsModal({
                         </div>
                         {/** 2nd Col */}
                         <div className="space-y-4">
+
                             <div className="flex gap-3">
-                                <span className="min-w-28 font-medium">Action/Event Type</span>
+                                <span className="min-w-28 font-medium">Action Type</span>
                                 <span className="whitespace-nowrap">{log.actionType}</span>
                             </div>
+
                             <div className="flex gap-3 items-center">
                                 <span className="min-w-28 font-medium">Status</span>
                                 <span
-                                    className={`inline-flex min-w-20 items-center justify-center whitespace-nowrap px-4 py-1 rounded-full text-xs font-medium border ${setTicketStatusColor(normalizedStatus)}`}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-medium border ${setTicketStatusColor(log.ticketStatus?.toUpperCase())}`}
                                 >
                                     {log.ticketStatus?.toUpperCase()}
                                 </span>
@@ -53,11 +55,12 @@ export default function SystemLogsModal({
                             <div className="flex gap-3 items-center">
                                 <span className="min-w-28 font-medium">Priority</span>
                                 <span
-                                    className={`inline-flex min-w-20 items-center justify-center whitespace-nowrap px-4 py-1 rounded-full text-xs font-medium border ${setPriorityStatusColor(log.priorityLevel)}`}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-medium border ${setPriorityStatusColor(log.priorityLevel)}`}
                                 >
                                     {log.priorityLevel?.toUpperCase()}
                                 </span>
                             </div>
+
                         </div>
 
                         <div className="flex justify-end">
