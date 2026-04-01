@@ -19,7 +19,7 @@ export default async function SystemLogsPage() {
 
       // convert to plain
       // actionType = eventType
-      // ticketStatus = status
+      // ticketStatus = status, converts NA to N/A on website
       // priorityLevel = priority
       const logs = rawLogs.map((log) => ({
         logId: String(log.logId ?? ''),
@@ -29,7 +29,10 @@ export default async function SystemLogsPage() {
             : String(log.timestamp ?? ''),
         userId: String(log.userId ?? ''),
         actionType: String(log.actionType ?? log.eventType ?? ''),
-        ticketStatus: String(log.ticketStatus ?? log.status ?? ''),
+        ticketStatus: (() => {
+          const status = String(log.ticketStatus ?? log.status ?? '').toUpperCase();
+          return status === 'NA' ? 'N/A' : status;
+        })(),
         details: String(log.details ?? ''),
         priorityLevel: String(log.priorityLevel ?? log.priority ?? ''),
       }));
