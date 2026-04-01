@@ -1,7 +1,7 @@
-import React from 'react';
-
 export default function ManagerDashboard() {
   // ticket manager mock data, will remove later when we have data na sa db
+
+  
   const mockTickets = [
     { 
       id: '#0142067', 
@@ -13,7 +13,7 @@ export default function ManagerDashboard() {
     },
     { 
       id: '#0142068', 
-      subject: 'Lorem ipsum dolor sit amet, consectetur adipiscing...', 
+      subject: 'Lorem ipsum dolor sit amet, consectetur adipiscing...Lorem ipsum dolor sit amet consectetur adipisicing elit. Unde, esse!Lorem ipsum dolor sit amet consectetur adipisicing elit. Unde, esse!', 
       type: 'Course withdrawals or dropping procedures',
       status: 'Open', 
       lastUpdate: 'August 7, 2020',
@@ -44,13 +44,13 @@ export default function ManagerDashboard() {
 
       {/* Top Cards Grid */}
       <div className="grid grid-cols-2 gap-8 mb-10">
-        <div className="bg-white rounded-lg shadow-sm p-6 min-h-[200px] border border-border-gray flex flex-col">
+        <div className="bg-white rounded-lg shadow-sm p-6 min-h-50 border border-border-gray flex flex-col">
           <h2 className="text-lg font-semibold mb-4">Ticket type metrics</h2>
           <div className="w-full flex-1 bg-div-gray rounded flex items-center justify-center text-sm opacity-60">
             Chart Area
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-sm p-6 min-h-[200px] border border-border-gray flex flex-col">
+        <div className="bg-white rounded-lg shadow-sm p-6 min-h-50 border border-border-gray flex flex-col">
           <h2 className="text-lg font-semibold mb-4">Recently Opened</h2>
           <div className="w-full flex-1 bg-div-gray rounded flex items-center justify-center text-sm opacity-60">
             Recent List Area
@@ -68,15 +68,16 @@ export default function ManagerDashboard() {
               <th className="py-4 px-6 font-semibold">Type</th>
               <th className="py-4 px-6 font-semibold text-center">Status</th>
               <th className="py-4 px-6 font-semibold text-center">Last Update</th>
-              <th className="py-4 px-6"></th> {/* Header for Edit button */}
+              <th className="py-4 px-6" /> 
             </tr>
           </thead>
+          {/* last th is the Header for Edit button, moved this down here because of the Hydration Error */}
           <tbody>
-            {mockTickets.map((ticket, index) => (
-              <tr key={index} className="border-b border-border-gray hover:bg-div-gray/30 transition-colors bg-white">
+            {mockTickets.map((ticket) => (
+              <tr key={ticket.id} className="border-b border-border-gray hover:bg-div-gray/30 transition-colors bg-white">
                 <td className="py-4 px-6 font-medium">{ticket.id}</td>
-                <td className="py-4 px-6 truncate max-w-[150px]">{ticket.subject}</td>
-                <td className="py-4 px-6 max-w-[200px]">{ticket.type}</td>
+                <td className="py-4 px-6 truncate max-w-37.5">{ticket.subject}</td>
+                <td className="py-4 px-6 max-w-37.5">{ticket.type}</td>
                 <td className="py-4 px-6 text-center">
                   <span className={`px-4 py-1.5 rounded-full text-xs font-medium border ${ticket.badgeColor}`}>
                     {ticket.status}
@@ -96,8 +97,7 @@ export default function ManagerDashboard() {
         </table>
         
         {/* Table Footer */}
-        <div className="text-center py-6 text-sm font-medium bg-div-gray text-foreground border-t border-border-gray">
-        </div>
+        <div className="text-center py-6 text-sm font-medium bg-div-gray text-foreground border-t border-border-gray" />
       </div>
     </div>
   );
