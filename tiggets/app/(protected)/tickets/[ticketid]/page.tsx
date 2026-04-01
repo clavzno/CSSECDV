@@ -1,6 +1,8 @@
+import ViewTicket from '@/components/ViewTicket';
+
 type ViewTicketPageProps = {
     params: {
-        ticketID: string;
+        ticketid: string;
     };
 };
 
@@ -10,7 +12,7 @@ export default async function ViewTicketPage({
 }: ViewTicketPageProps) {
     return (
         <main className="ml-56 min-h-screen bg-background p-6">
-            <h1>{params.ticketID}</h1>
+            <ViewTicket ticketId={params.ticketid} />
         </main>
     );
 }

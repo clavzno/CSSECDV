@@ -9,7 +9,6 @@ const customerTickets = [
         title: "HELP I CAN'T DO THIS ANYMORE",
         status: 'Processing',
         updatedAt: 'August 6, 2020',
-        highlighted: true,
     },
     {
         id: '#0142068',
@@ -39,13 +38,13 @@ const statusClasses = {
 };
 
 function TicketCard({ ticket }) {
+    const ticketPath = `/tickets/${encodeURIComponent(ticket.id.replace('#', ''))}`;
+
     return (
-        <article
-            className={`relative flex h-52 min-w-0 flex-col rounded-xl border bg-white p-5 shadow-sm transition ${
-                ticket.highlighted
-                    ? 'border-blue-500 ring-1 ring-blue-500/60'
-                    : 'border-zinc-200 hover:border-zinc-300'
-            }`}
+        <Link
+            href={ticketPath}
+            aria-label={`View ticket ${ticket.id}`}
+            className="relative flex h-52 min-w-0 flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-blue-500 hover:ring-1 hover:ring-blue-500/60"
         >
             <span
                 className={`absolute right-4 top-3 rounded-full border px-4 py-1 text-xs font-medium ${
@@ -70,7 +69,7 @@ function TicketCard({ ticket }) {
                     <p className="text-sm leading-tight sm:text-base">{ticket.updatedAt}</p>
                 </div>
             </div>
-        </article>
+        </Link>
     );
 }
 
