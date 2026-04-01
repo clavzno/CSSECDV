@@ -64,7 +64,7 @@ export default function Sidebar({ role }) {
     }
 
     return (
-        <aside className="fixed left-0 top-0 z-30 flex h-screen w-56 flex-col bg-gradient-to-b from-[#173329] to-[#0f261d] px-4 py-7 text-background shadow-xl">
+        <aside className="fixed left-0 top-0 z-30 flex h-screen w-56 flex-col bg-linear-to-b from-[#173329] to-[#0f261d] px-4 py-7 text-background shadow-xl">
             <div className="mb-8 flex justify-center">
                 <Image
                     src={Tiggets}
