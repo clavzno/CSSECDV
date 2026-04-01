@@ -39,26 +39,43 @@ export default function SystemLogs({ session, logs }) {
     }
 
 
-    // design, N/A if it's not ticket-related
+    // N/A if it's not ticket-related
     function setTicketStatusColor(status) {
-        switch (status) {
-            case 'RESOLVED': return 'bg-green-200 text-green-800 border-green-300';
-            case 'OPEN': return 'bg-red-200 text-red-800 border-red-300';
-            case 'PROCESSING': return 'bg-teal-200 text-teal-800 border-teal-300';
-            case 'PENDING': return 'bg-yellow-200 text-yellow-800 border-yellow-300';
-            case 'N/A': return 'bg-gray-200 text-gray-800 border-gray-300';
-            default: return 'bg-gray-200 text-gray-800 border-gray-300';
+        // accept resolved, RESOLVED, ReSolved, etc.
+        const normalizedStatus = status?.toUpperCase();
+
+        switch (normalizedStatus) {
+            case 'RESOLVED':
+                return 'bg-green-200 text-green-800 border-green-300';
+            case 'OPEN':
+                return 'bg-red-200 text-red-800 border-red-300';
+            case 'PROCESSING':
+                return 'bg-teal-200 text-teal-800 border-teal-300';
+            case 'PENDING':
+                return 'bg-yellow-200 text-yellow-800 border-yellow-300';
+            case 'N/A':
+                return 'bg-gray-200 text-gray-800 border-gray-300';
+            default:
+                return 'bg-gray-200 text-gray-800 border-gray-300';
         }
     }
 
     // design
     function setPriorityStatusColor(priority) {
-        switch (priority) {
-            case 'info': return 'bg-div-gray text-gray-800 border-gray-300';
-            case 'warning': return 'bg-warning-yellow text-warning-yellow-stroke border-warning-yellow-stroke';
-            case 'error': return 'bg-error-orange text-error-orange-stroke border-error-orange-stroke';
-            case 'critical': return 'bg-red-200 text-red-800 border-red-300';
-            default: return 'bg-gray-200 text-gray-800 border-gray-300';
+        // accept critical, CRITICAL, CritiCal, etc.
+        const normalizedPriority = priority?.toLowerCase();
+
+        switch (normalizedPriority) {
+            case 'info':
+                return 'bg-div-gray text-gray-800 border-gray-300';
+            case 'warning':
+                return 'bg-warning-yellow text-warning-yellow-stroke border-warning-yellow-stroke';
+            case 'error':
+                return 'bg-error-orange text-error-orange-stroke border-error-orange-stroke';
+            case 'critical':
+                return 'bg-red-200 text-red-800 border-red-300';
+            default:
+                return 'bg-gray-200 text-gray-800 border-gray-300';
         }
     }
 
@@ -84,10 +101,12 @@ export default function SystemLogs({ session, logs }) {
             filters.actionType === '' || log.actionType === filters.actionType;
 
         const matchesTicketStatus =
-            filters.ticketStatus === '' || log.ticketStatus === filters.ticketStatus;
+            filters.ticketStatus === '' ||
+            log.ticketStatus?.toLowerCase() === filters.ticketStatus.toLowerCase();
 
         const matchesPriority =
-            filters.priorityLevel === '' || log.priorityLevel === filters.priorityLevel;
+            filters.priorityLevel === '' ||
+            log.priorityLevel?.toLowerCase() === filters.priorityLevel.toLowerCase();
 
         return (
             matchesSearch &&

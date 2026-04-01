@@ -1,7 +1,6 @@
 "use client";
 
 import { CircleX } from 'lucide-react';
-import { normalize } from 'path';
 
 export default function SystemLogsModal({
     log,
