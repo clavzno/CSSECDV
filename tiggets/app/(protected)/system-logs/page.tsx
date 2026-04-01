@@ -11,11 +11,21 @@ export default async function SystemLogsPage() {
       const client = await clientPromise;
       const db = client.db("TicketingSystem");
 
-      const logs = await db
+      const rawLogs = await db
         .collection("logs")
         .find({})
         .sort({ timestamp: -1 })
         .toArray();
+
+      // convert to plain logs
+      const logs = rawLogs.map((log) => ({
+        ...log,
+        _id: log._id?.toString(),
+        timestamp:
+          log.timestamp instanceof Date
+            ? log.timestamp.toISOString()
+            : String(log.timestamp),
+      }));
 
       return logs;
     } catch (error) {

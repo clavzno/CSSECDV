@@ -2,9 +2,11 @@
 import { useState } from 'react';
 // content
 import SystemLogsFilter from '@/components/SystemLogsFilter';
+import SystemLogsModal from '@/components/SystemLogsModal';
 
 // page.tsx for system logs handles all the server-side fetching and passes it down to this component
 export default function SystemLogs({ session, logs }) {
+    // filter states
     const [showFilters, setShowFilters] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filters, setFilters] = useState({
@@ -15,11 +17,16 @@ export default function SystemLogs({ session, logs }) {
         dateRange: '',
     });
 
+    // for popup
+    const [selectedLog, setSelectedLog] = useState(null);
+
+    // for updating 
     function handleFilterChange(e) {
         const { name, value } = e.target;
         setFilters((prev) => ({ ...prev, [name]: value }));
     }
 
+    // back to default
     function clearFilters() {
         setFilters({
             userId: '',
@@ -31,17 +38,20 @@ export default function SystemLogs({ session, logs }) {
         setSearchTerm('');
     }
 
+
+    // design, N/A if it's not ticket-related
     function setTicketStatusColor(status) {
         switch (status) {
-            case 'Resolved': return 'bg-green-200 text-green-800 border-green-300';
-            case 'Open': return 'bg-red-200 text-red-800 border-red-300';
-            case 'Processing': return 'bg-teal-200 text-teal-800 border-teal-300';
-            case 'Pending': return 'bg-yellow-200 text-yellow-800 border-yellow-300';
-            case 'N/A':  return 'bg-gray-200 text-gray-800 border-gray-300';
+            case 'RESOLVED': return 'bg-green-200 text-green-800 border-green-300';
+            case 'OPEN': return 'bg-red-200 text-red-800 border-red-300';
+            case 'PROCESSING': return 'bg-teal-200 text-teal-800 border-teal-300';
+            case 'PENDING': return 'bg-yellow-200 text-yellow-800 border-yellow-300';
+            case 'N/A': return 'bg-gray-200 text-gray-800 border-gray-300';
             default: return 'bg-gray-200 text-gray-800 border-gray-300';
         }
     }
 
+    // design
     function setPriorityStatusColor(priority) {
         switch (priority) {
             case 'info': return 'bg-div-gray text-gray-800 border-gray-300';
@@ -126,7 +136,8 @@ export default function SystemLogs({ session, logs }) {
                         {filteredLogs.map((log) => (
                             <tr
                                 key={`${log.logId}-${log.timestamp}-${log.priorityLevel}`}
-                                className="border-b border-border-gray hover:bg-div-gray/30 transition-colors bg-white"
+                                onClick={() => setSelectedLog(log)}
+                                className="border-b border-border-gray hover:bg-div-gray/30 transition-colors bg-white cursor-pointer"
                             >
                                 <td className="py-4 px-6 text-center font-medium">
                                     {log.logId}
@@ -164,6 +175,14 @@ export default function SystemLogs({ session, logs }) {
                 </table>
                 <div className="text-center py-6 text-sm font-medium bg-div-gray text-foreground border-t border-border-gray" />
             </div>
+            {selectedLog && (
+                <SystemLogsModal
+                    log={selectedLog}
+                    onClose={() => setSelectedLog(null)}
+                    setTicketStatusColor={setTicketStatusColor}
+                    setPriorityStatusColor={setPriorityStatusColor}
+                />
+            )}
         </div>
     );
 }
