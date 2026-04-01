@@ -13,7 +13,7 @@ export default async function SystemLogsPage() {
 
   return (
     <main className="ml-56 min-h-screen bg-background p-6">
-      <SystemLogs role={session.role} />
+      <SystemLogs session={session} />
     </main>
   );
 }

@@ -57,7 +57,7 @@ export default function ManagerTickets({ role }) {
     <div className="w-full font-text text-foreground">
       <h1 className="text-4xl font-semibold mb-8 text-black">All Tickets</h1>
 
-      <div className="bg-[#e2e2e2] pt-8 flex flex-col min-h-[600px] rounded-t-md shadow-sm border border-zinc-300">
+      <div className="bg-[#e2e2e2] pt-8 flex flex-col min-h-150 rounded-t-md shadow-sm border border-zinc-300">
         
         {/* Main Action Bar */}
         <div className="flex flex-col sm:flex-row items-center gap-6 px-6 mb-4 w-full">
@@ -70,7 +70,7 @@ export default function ManagerTickets({ role }) {
             Filters
           </button>
 
-          <div className="flex bg-white border border-zinc-300 rounded-sm w-full max-w-[450px] shadow-sm overflow-hidden focus-within:ring-1 focus-within:ring-[#3b5949]">
+          <div className="flex bg-white border border-zinc-300 rounded-sm w-full max-w-112.5 shadow-sm overflow-hidden focus-within:ring-1 focus-within:ring-[#3b5949]">
             <input
               type="text"
               placeholder="Quick search..."
