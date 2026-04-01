@@ -42,11 +42,25 @@ export default function Sidebar({ role }) {
     const router = useRouter();
     const pathname = usePathname();
 
-    // TODO: handle logout properly
-    function handleLogout(event) {
+    // Secure logout handler
+    async function handleLogout(event) {
         event.preventDefault();
-        // something here
-        router.push('/');
+        
+        try {
+            // 1. Hit the API route we built to destroy the HttpOnly session cookie
+            await fetch('/api/auth/logout', { method: 'POST' });
+
+            // 2. Clear the user data out of the browser's local storage
+            localStorage.removeItem('user');
+
+            // 3. Force a hard redirect to the login page. 
+            // Using window.location.href instead of router.push('/') is a security 
+            // best practice here because it completely wipes the React state memory.
+            window.location.href = '/';
+            
+        } catch (error) {
+            console.error('Failed to log out:', error);
+        }
     }
 
     return (
