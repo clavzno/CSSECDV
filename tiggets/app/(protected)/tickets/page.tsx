@@ -10,22 +10,24 @@ export default async function TicketsPage() {
     redirect('/');
   }
 
-  function renderRoleSpecificView() {
-    switch (session.role?.toLowerCase()) {
+  const role = session.role?.toLowerCase();
+
+  async function renderRoleSpecificView() {
+    switch (role) {
       case "manager":
-        return <ManagerTickets role={session.role} />;
+        return <ManagerTickets role={role} />;
       case "admin":
         return <h1>blank</h1>;
       case "customer":
         return <h1>blank</h1>;
       default:
-        return <div>No Access. Role: {session.role}</div>;
+        return <div>You do not have permission to view this page.</div>;
     }
   }
 
   return (
     <div className="flex h-screen bg-background font-text text-foreground">
-      <Sidebar role={session.role} />
+      <Sidebar role={role} />
       
       <main className="ml-56 flex-1 p-8 overflow-y-auto">
         {renderRoleSpecificView()}

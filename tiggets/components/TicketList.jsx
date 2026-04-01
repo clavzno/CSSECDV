@@ -31,7 +31,7 @@ export default function TicketList({ tickets, role }) {
                 <thead>
                     <tr className="bg-div-gray border-b border-border-gray">
                         <th className="py-4 px-6 font-semibold">Ticket ID #</th>
-                        <th className="py-4 px-6 font-semibold">User ID #</th> {/* NEW COLUMN */}
+                        <th className="py-4 px-6 font-semibold">User ID #</th>
                         <th className="py-4 px-6 font-semibold">Subject</th>
                         <th className="py-4 px-6 font-semibold">Type</th>
                         <th className="py-4 px-6 font-semibold text-center">Status</th>
