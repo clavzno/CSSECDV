@@ -75,7 +75,7 @@ export default function SystemLogsModal({
                     <div className="flex flex-col gap-3 md:flex-row md:gap-6">
                         <span className="min-w-20 font-medium text-sm">Description</span>
 
-                        <div className="flex-1 max-h-60 overflow-y-auto rounded-sm border border-border-gray bg-[#f3f3f3] p-4 text-sm text-foreground break-words">
+                        <div className="flex-1 max-h-60 overflow-y-auto rounded-sm border border-border-gray bg-[#f3f3f3] p-4 text-sm text-foreground wrap-break-word">
                             {log.details}
                         </div>
                     </div>
