@@ -1,8 +1,18 @@
 import { CircleX, Save, FileText, X } from 'lucide-react';
 
-const inquiryTypes = ['Bug Report', 'Account Issue', 'Service Request', 'Other'];
+const inquiryTypes = [
+	'Course Registration and Enlistment Issues', 
+	'Shifting Inquiries', 
+	'Application for Leave of Absence (LOA)', 
+	'Request for Course Syllabi or Descriptions',
+	'Academic Advising and Curriculum Inquiries',
+	'Graduation Requirements and Clearance',
+	'Course Withdrawals or Dropping Procedures',
+	'Transferees: Credit Transfer and Accreditations'
+];
 
-export default function CreateTicket({ role }) {
+// this is only shown to customers 
+export default function CreateTicket() {
 	return (
 		<section className="min-h-[calc(100vh-3rem)]">
 			<h1 className="mb-6 text-5xl font-semibold text-zinc-800 sm:text-6xl">Create a New Ticket</h1>
