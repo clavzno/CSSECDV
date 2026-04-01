@@ -26,9 +26,7 @@ export default async function ProtectedLayout({
         <>
             {/* All pages will now have a sidebar */}
             <Sidebar role={session.role} />
-            <main className="ml-64 min-h-screen bg-background p-6">
                 {children}
-            </main>
         </>
     );
 }
