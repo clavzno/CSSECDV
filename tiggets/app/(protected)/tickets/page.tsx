@@ -20,11 +20,8 @@ export default async function TicketsPage() {
 
   // TODO: CreateTicket is a separate page for customers only, remove this when it's done
   return (
-    <div>
-      <main className="ml-64 min-h-screen bg-background p-6">
-        {/* Render view depending on role */}
-        <CreateTicket />
-      </main>
-    </div>
+    <main className="ml-56 min-h-screen bg-background p-6">
+      <CreateTicket />
+    </main>
   );
 }
