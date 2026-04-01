@@ -1,198 +1,34 @@
-import Link from 'next/link';
+"use client";
+import { useState } from 'react';
+// content
+import SystemLogsFilter from '@/components/SystemLogsFilter';
 
-// getting logs
-import clientPromise from '@/lib/mongodb';
+// page.tsx for system logs handles all the server-side fetching and passes it down to this component
+export default function SystemLogs({ session, logs }) {
+    const [showFilters, setShowFilters] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filters, setFilters] = useState({
+        userId: '',
+        actionType: '',
+        ticketStatus: '',
+        priorityLevel: '',
+        dateRange: '',
+    });
 
-const mockLogs = [
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'N/A',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'info',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'open',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'warning',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'resolved',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'error',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'processing',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'critical',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'pending',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'critical',
-    },
-    // add more
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'N/A',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'info',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'open',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'warning',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'resolved',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'error',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'processing',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'critical',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'pending',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'critical',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'N/A',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'info',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'open',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'warning',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'resolved',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'error',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'processing',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'critical',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'pending',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'critical',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'N/A',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'info',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'open',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'warning',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'resolved',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'error',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'processing',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'critical',
-    },
-    {
-        logId: '1212121',
-        timestamp: '2026-04-01T08:33:26.173+00:00',
-        userId: 'manager',
-        actionType: 'LOGOUT',
-        ticketStatus: 'pending',
-        details: 'admin successfully logged out via manual logout.',
-        priorityLevel: 'critical',
-    },
-]
+    function handleFilterChange(e) {
+        const { name, value } = e.target;
+        setFilters((prev) => ({ ...prev, [name]: value }));
+    }
 
-export default async function SystemLogs({ session }) {
-    // TODO: call a security function here that checks the role
-    const role = session?.role;
-
-    if (role?.toLowerCase() != "admin") {
-        return null;
+    function clearFilters() {
+        setFilters({
+            userId: '',
+            actionType: '',
+            ticketStatus: '',
+            priorityLevel: '',
+            dateRange: '',
+        });
+        setSearchTerm('');
     }
 
     function setTicketStatusColor(status) {
@@ -201,6 +37,7 @@ export default async function SystemLogs({ session }) {
             case 'Open': return 'bg-red-200 text-red-800 border-red-300';
             case 'Processing': return 'bg-teal-200 text-teal-800 border-teal-300';
             case 'Pending': return 'bg-yellow-200 text-yellow-800 border-yellow-300';
+            case 'N/A':  return 'bg-gray-200 text-gray-800 border-gray-300';
             default: return 'bg-gray-200 text-gray-800 border-gray-300';
         }
     }
@@ -215,30 +52,41 @@ export default async function SystemLogs({ session }) {
         }
     }
 
-    async function getSystemLogs() {
-        try {
-            const client = await clientPromise;
-            const db = client.db('TicketingSystem');
+    // ------ END OF FUNCTIONS ------
 
-            const logs = await db
-                .collection('logs')
-                .find({})
-                .sort({ timestamp: -1 })
-                .toArray();
-
-            return logs;
-        } catch (error) {
-            console.error('Failed to fetch system logs:', error);
-            return [];
-        }
-    }
     // TODO: call a security function here that checks the role
+    const role = session?.role;
+
     if (role?.toLowerCase() != "admin") {
         return null;
     }
 
-    // get the logs
-    const logs = await getSystemLogs();
+    const filteredLogs = logs.filter((log) => {
+        const matchesSearch =
+            searchTerm === '' ||
+            log.details?.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesUserId =
+            filters.userId === '' ||
+            log.userId?.toLowerCase().includes(filters.userId.toLowerCase());
+
+        const matchesActionType =
+            filters.actionType === '' || log.actionType === filters.actionType;
+
+        const matchesTicketStatus =
+            filters.ticketStatus === '' || log.ticketStatus === filters.ticketStatus;
+
+        const matchesPriority =
+            filters.priorityLevel === '' || log.priorityLevel === filters.priorityLevel;
+
+        return (
+            matchesSearch &&
+            matchesUserId &&
+            matchesActionType &&
+            matchesTicketStatus &&
+            matchesPriority
+        );
+    });
 
     return (
         <div className="w-full font-text text-foreground">
@@ -250,7 +98,16 @@ export default async function SystemLogs({ session }) {
             {/** Logs Div */}
             <div className="rounded-t-lg overflow-hidden border border-border-gray shadow-sm">
 
-                {/** Filter Section  */}
+                {/** Filter Section: By [Date Range] [Priority] [Action Type] [User ID] [Search Details] */}
+                <SystemLogsFilter
+                    showFilters={showFilters}
+                    setShowFilters={setShowFilters}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    filters={filters}
+                    handleFilterChange={handleFilterChange}
+                    clearFilters={clearFilters}
+                />
 
                 {/** Logs */}
                 <table className="w-full text-left border-collapse bg-background text-sm">
@@ -266,7 +123,7 @@ export default async function SystemLogs({ session }) {
                         </tr>
                     </thead>
                     <tbody>
-                        {logs.map((log) => (
+                        {filteredLogs.map((log) => (
                             <tr
                                 key={`${log.logId}-${log.timestamp}-${log.priorityLevel}`}
                                 className="border-b border-border-gray hover:bg-div-gray/30 transition-colors bg-white"
