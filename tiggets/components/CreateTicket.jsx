@@ -2,7 +2,7 @@ import { CircleX, Save, FileText, X } from 'lucide-react';
 
 const inquiryTypes = ['Bug Report', 'Account Issue', 'Service Request', 'Other'];
 
-export default function CreateTicket() {
+export default function CreateTicket({ role }) {
 	return (
 		<section className="min-h-[calc(100vh-3rem)]">
 			<h1 className="mb-6 text-5xl font-semibold text-zinc-800 sm:text-6xl">Create a New Ticket</h1>
@@ -75,13 +75,13 @@ export default function CreateTicket() {
 						<div className="flex flex-col items-start gap-3">
 							<button
 								type="button"
-								className="flex h-11 w-full max-w-[280px] items-center gap-2 rounded-md border border-zinc-400 bg-zinc-100 px-3 text-base text-zinc-400 transition hover:text-zinc-600"
+								className="flex h-11 w-full max-w-70 items-center gap-2 rounded-md border border-zinc-400 bg-zinc-100 px-3 text-base text-zinc-400 transition hover:text-zinc-600"
 							>
 								<FileText className="h-5 w-5" />
 								<span>Click to upload file...</span>
 							</button>
 
-							<div className="flex h-11 w-full max-w-[280px] items-center justify-between rounded-md border border-zinc-400 bg-zinc-100 px-3 text-base text-zinc-400">
+							<div className="flex h-11 w-full max-w-70 items-center justify-between rounded-md border border-zinc-400 bg-zinc-100 px-3 text-base text-zinc-400">
 								<span>ThisIsAnUploadedFile.pdf</span>
 								<button
 									type="button"

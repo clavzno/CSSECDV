@@ -37,10 +37,16 @@ const sidebarLinks = {
 };
 
 export default function Sidebar({ role }) {
-    // dynamic sidebar based on role
-    const links = sidebarLinks[role] ?? [];
     const router = useRouter();
     const pathname = usePathname();
+
+    // if there's no role that means there's no session, return NO links
+    if (!role) {
+        return null;
+    }
+
+    // dynamic sidebar based on role
+    const links = sidebarLinks[role] ?? [];
 
     // Secure logout handler
     async function handleLogout(event) {

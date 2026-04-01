@@ -1,8 +1,18 @@
-// TODO: change this to { user } and access role={user.role}
+import { redirect } from 'next/navigation';
+// session
+import { getCurrentSession } from '@/lib/rbac';
+// content
+
 export default async function SystemLogsPage() {
+    const session = await getCurrentSession();
+    
+      if (!session) {
+        redirect('/');
+      }
+    
     return(
         <>
-        <h1>System Logs Page</h1>
+        <h1>SystemLogsPage</h1>
         </>
     );
 }

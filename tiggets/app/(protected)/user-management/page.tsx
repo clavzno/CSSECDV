@@ -1,8 +1,18 @@
-// TODO: change this to { user } and access role={user.role}
+import { redirect } from 'next/navigation';
+// session
+import { getCurrentSession } from '@/lib/rbac';
+// content
+
 export default async function UserManagementPage() {
+    const session = await getCurrentSession();
+    
+      if (!session) {
+        redirect('/');
+      }
+    
     return(
         <>
-        <h1>User Management Page</h1>
+        <h1>UserManagementPage</h1>
         </>
     );
 }

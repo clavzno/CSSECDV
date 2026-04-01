@@ -1,5 +1,4 @@
 // content for admin dashboard
-
 import TicketList from '@/components/TicketList';
 
 export default function AdminDashboard({ role }) {

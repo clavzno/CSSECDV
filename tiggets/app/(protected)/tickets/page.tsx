@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 import { getCurrentSession } from '@/lib/rbac';
-import Sidebar from '@/components/Sidebar';
 import CreateTicket from '@/components/CreateTicket';
 
 export default async function TicketsPage() {
@@ -18,9 +17,6 @@ export default async function TicketsPage() {
 
   return (
     <div>
-      {/* 3. Pass the role to the Sidebar to keep the navigation bug fixed! */}
-      <Sidebar role={session.role} />
-      
       <main className="ml-64 min-h-screen bg-background p-6">
         {/* 4. Render your Create Ticket form */}
         <CreateTicket />
