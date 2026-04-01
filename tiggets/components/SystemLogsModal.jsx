@@ -1,6 +1,7 @@
 "use client";
 
 import { CircleX } from 'lucide-react';
+import { normalize } from 'path';
 
 export default function SystemLogsModal({
     log,
@@ -10,10 +11,7 @@ export default function SystemLogsModal({
 }) {
     if (!log) return null;
 
-    const normalizedStatus =
-        log.ticketStatus === 'N/A'
-            ? 'N/A'
-            : log.ticketStatus?.charAt(0).toUpperCase() + log.ticketStatus?.slice(1);
+    const normalizedStatus = log.ticketStatus?.toUpperCase();
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
@@ -46,7 +44,7 @@ export default function SystemLogsModal({
                             <div className="flex gap-3 items-center">
                                 <span className="min-w-28 font-medium">Status</span>
                                 <span
-                                    className={`px-4 py-1.5 rounded-full text-xs font-medium border ${setTicketStatusColor(log.ticketStatus?.toUpperCase())}`}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-medium border ${setTicketStatusColor(normalizedStatus)}`}
                                 >
                                     {log.ticketStatus?.toUpperCase()}
                                 </span>

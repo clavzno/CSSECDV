@@ -17,14 +17,21 @@ export default async function SystemLogsPage() {
         .sort({ timestamp: -1 })
         .toArray();
 
-      // convert to plain logs
+      // convert to plain
+      // actionType = eventType
+      // ticketStatus = status
+      // priorityLevel = priority
       const logs = rawLogs.map((log) => ({
-        ...log,
-        _id: log._id?.toString(),
+        logId: String(log.logId ?? ''),
         timestamp:
           log.timestamp instanceof Date
             ? log.timestamp.toISOString()
-            : String(log.timestamp),
+            : String(log.timestamp ?? ''),
+        userId: String(log.userId ?? ''),
+        actionType: String(log.actionType ?? log.eventType ?? ''),
+        ticketStatus: String(log.ticketStatus ?? log.status ?? ''),
+        details: String(log.details ?? ''),
+        priorityLevel: String(log.priorityLevel ?? log.priority ?? ''),
       }));
 
       return logs;
@@ -34,11 +41,16 @@ export default async function SystemLogsPage() {
     }
   }
 
-  const session = await getCurrentSession();
+  const rawSession = await getCurrentSession();
 
-  if (!session) {
+  if (!rawSession) {
     redirect("/");
   }
+
+  const session = {
+    userId: String(rawSession.userId ?? ''),
+    role: String(rawSession.role ?? ''),
+  };
 
   if (session.role?.toLowerCase() !== "admin") {
     return null;
