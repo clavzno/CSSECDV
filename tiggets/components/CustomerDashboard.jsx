@@ -54,7 +54,7 @@ function TicketCard({ ticket }) {
                 {ticket.status}
             </span>
 
-            <h2 className="mt-7 max-w-[90%] text-[1.45rem] leading-[1.12] font-medium text-zinc-800 sm:text-[1.9rem]">
+            <h2 className="mt-7 max-w-[90%] text-xl leading-tight font-medium text-zinc-800 sm:text-2xl">
                 {ticket.title}
             </h2>
 
@@ -76,9 +76,9 @@ function TicketCard({ ticket }) {
 export default function CustomerDashboard() {
     return (
         <section className="relative min-h-[calc(100vh-3rem)]">
-            <h1 className="mb-8 text-5xl font-semibold text-zinc-800 sm:text-6xl">My Tickets</h1>
+            <h1 className="mb-8 text-3xl font-bold text-zinc-800">My Tickets</h1>
 
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {customerTickets.map((ticket) => (
                     <TicketCard key={ticket.id} ticket={ticket} />
                 ))}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, Edit, Trash2, Upload, X } from 'lucide-react';
+import { Download, Edit, MoreHorizontal, Trash2, Upload, X } from 'lucide-react';
 
 // Mock data - will be replaced with API calls
 const mockTicketData = {
@@ -144,15 +144,18 @@ function TicketDescription({
 function Reply({ reply, isCurrentUserAuthor, canManageReplies, onEdit, onDelete }) {
     const [isEditing, setIsEditing] = useState(false);
     const [editedContent, setEditedContent] = useState(reply.content);
+    const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
 
     const handleSaveEdit = () => {
         onEdit(reply.id, editedContent);
         setIsEditing(false);
+        setIsActionsMenuOpen(false);
     };
 
     const handleCancelEdit = () => {
         setEditedContent(reply.content);
         setIsEditing(false);
+        setIsActionsMenuOpen(false);
     };
 
     return (
@@ -174,9 +177,9 @@ function Reply({ reply, isCurrentUserAuthor, canManageReplies, onEdit, onDelete 
                         </button>
                         <button
                             onClick={handleSaveEdit}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2"
+                            className="px-4 py-2 rounded-lg bg-tiggets-lightgreen text-white hover:bg-[#2b4a3c] transition"
                         >
-                            💾 Save Changes
+                            Save Changes
                         </button>
                     </div>
                 </div>
@@ -191,24 +194,38 @@ function Reply({ reply, isCurrentUserAuthor, canManageReplies, onEdit, onDelete 
                             )}
                         </div>
                         {isCurrentUserAuthor && canManageReplies && (
-                            <div className="flex gap-2">
+                            <div className="relative">
                                 <button
-                                    onClick={() => {
-                                        setEditedContent(reply.content);
-                                        setIsEditing(true);
-                                    }}
-                                    className="p-2 hover:bg-gray-200 rounded transition"
-                                    aria-label="Edit reply"
+                                    onClick={() => setIsActionsMenuOpen((prev) => !prev)}
+                                    className="p-2 hover:bg-gray-300 rounded transition"
+                                    aria-label="Reply options"
                                 >
-                                    <Edit className="h-4 w-4 text-zinc-600" />
+                                    <MoreHorizontal className="h-4 w-4 text-zinc-600" />
                                 </button>
-                                <button
-                                    onClick={() => onDelete(reply.id)}
-                                    className="p-2 hover:bg-gray-200 rounded transition"
-                                    aria-label="Delete reply"
-                                >
-                                    <Trash2 className="h-4 w-4 text-red-600" />
-                                </button>
+
+                                {isActionsMenuOpen && (
+                                    <div className="absolute right-0 top-10 bg-white border border-zinc-200 shadow-md rounded-sm w-28 z-10 overflow-hidden text-sm">
+                                        <button
+                                            onClick={() => {
+                                                setEditedContent(reply.content);
+                                                setIsEditing(true);
+                                                setIsActionsMenuOpen(false);
+                                            }}
+                                            className="w-full text-left px-4 py-2 hover:bg-zinc-100 flex items-center gap-2 text-zinc-600"
+                                        >
+                                            <Edit className="h-3.5 w-3.5" /> Edit
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                onDelete(reply.id);
+                                                setIsActionsMenuOpen(false);
+                                            }}
+                                            className="w-full text-left px-4 py-2 hover:bg-red-50 flex items-center gap-2 text-red-600 border-t border-zinc-100"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
