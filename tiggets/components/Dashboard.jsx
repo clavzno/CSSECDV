@@ -7,7 +7,7 @@ import ManagerDashboard from '@/components/ManagerDashboard';
 import CustomerDashboard from '@/components/CustomerDashboard';
 
 // TODO: change this later to just {children, user_role}
-export default function Dashboard({ user_role = "customer" }) {
+export default function Dashboard({ user_role = "manager" }) {
     function renderContent() {
         switch (user_role) {
             case "admin":
