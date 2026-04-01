@@ -177,7 +177,7 @@ export default function SystemLogs({ session, logs }) {
                                     </div>
                                 </td>
                                 <td className="py-4 px-6 text-center">
-                                    <span className={`px-4 py-1.5 rounded-full text-xs font-medium border ${setTicketStatusColor(log.ticketStatus?.toUpperCase())}`}>
+                                    <span className={`px-4 py-1.5 rounded-full text-xs font-medium border ${setTicketStatusColor(log.ticketStatus)}`}>
                                         {log.ticketStatus?.toUpperCase()}
                                     </span>
                                 </td>
