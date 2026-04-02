@@ -10,9 +10,14 @@ export async function createLog({
     ticketStatus,   
     status,         
     priorityLevel,  
-    priority        
+    priority,
+    // Safely default new fields so old calls don't crash
+    assignedTo = 'N/A', 
+    replyTo = 'N/A',    
+    attachments = []    
 }) {
     try {
+        // Map old variables to new ones if needed
         const finalEventType = eventType || actionType;
         const finalStatus = status || ticketStatus || 'NA';
         const rawPriority = priority || priorityLevel || 'INFO';
@@ -21,33 +26,23 @@ export async function createLog({
         const client = await clientPromise;
         const db = client.db('TicketingSystem');
         
-        // Ensure the ID is a clean string with no hidden spaces
+        // Clean the ID string
         const stringUserId = userId ? String(userId).trim() : '';
         let displayUser = stringUserId || 'System/Unauthenticated';
         
         if (stringUserId.length === 24) {
             try {
-                // --- DEBUG: Let's see if the collection is correct ---
+                // Database lookup to swap ID for Username
                 const userDoc = await db.collection('users').findOne({ _id: new ObjectId(stringUserId) });
-                
-                if (userDoc) {
-                    if (userDoc.username) {
-                        displayUser = userDoc.username; 
-                    } else {
-                        console.log(`[LOGGER DEBUG] Found user document, but it has no 'username' field.`);
-                    }
-                } else {
-                    console.log(`[LOGGER DEBUG] Query ran successfully, but no user found in 'users' collection with ID: ${stringUserId}. Is the collection named 'Users' with a capital U?`);
+                if (userDoc && userDoc.username) {
+                    displayUser = userDoc.username; 
                 }
             } catch (err) {
-                // --- DEBUG: Catching ObjectId or Connection crashes ---
                 console.error(`[LOGGER CRASH] The database lookup crashed:`, err.message);
             }
-        } else {
-            console.log(`[LOGGER DEBUG] ID length is not 24. Length: ${stringUserId.length}, Value: "${stringUserId}"`);
-        }
+        } 
 
-        // Replace ALL instances of the raw ID in the details string
+        // Replace raw IDs in the details text with the human-readable username
         const finalDetails = details ? details.replace(new RegExp(stringUserId, 'g'), displayUser) : '';
 
         const logEntry = {
@@ -57,7 +52,10 @@ export async function createLog({
             eventType: finalEventType, 
             status: finalStatus,
             details: finalDetails, 
-            priority: finalPriority 
+            priority: finalPriority,
+            assignedTo: assignedTo,
+            replyTo: replyTo,
+            attachments: attachments
         };
 
         await db.collection('logs').insertOne(logEntry);

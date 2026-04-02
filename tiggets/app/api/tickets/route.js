@@ -10,30 +10,34 @@ export async function POST(request) {
         if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
         const payload = await request.json();
-        const { subject, type, body } = payload;
+        const { subject, type, body, attachments = [] } = payload; 
 
-        // --- 🚨 CRITICAL CHECK ---
+        // --- 🚨 CRITICAL CHECK: Tampering ---
         if (payload.userId && payload.userId !== session.userId) {
             await createLog({
                 userId: session.userId,
                 actionType: 'TICKET_CREATED',
                 ticketStatus: 'NA',
-                // Updated to include exact user ID
                 details: `${session.userId} tampers with the request to create a ticket under another user's account (${payload.userId}).`,
-                priorityLevel: 'critical'
+                priorityLevel: 'critical',
+                assignedTo: 'N/A', 
+                replyTo: 'N/A',
+                attachments: attachments
             });
             return NextResponse.json({ error: 'Forbidden Tampering' }, { status: 403 });
         }
 
-        // --- ERROR CHECK ---
+        // --- ERROR CHECK: Validation ---
         if (!subject || !type || !body) {
             await createLog({
                 userId: session.userId,
                 actionType: 'TICKET_CREATED',
                 ticketStatus: 'NA', 
-                // Updated to include exact user ID
                 details: `Ticket creation by ${session.userId} fails due to validation issue: Missing required fields.`,
-                priorityLevel: 'error'
+                priorityLevel: 'error',
+                assignedTo: 'N/A', 
+                replyTo: 'N/A',
+                attachments: attachments
             });
             return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
         }
@@ -42,6 +46,7 @@ export async function POST(request) {
         const db = client.db('TicketingSystem');
         const ticketid = `#${Math.floor(100000 + Math.random() * 900000)}`;
 
+        // --- REORDERED OBJECT ---
         const newTicket = {
             ticketid, 
             subject,
@@ -50,7 +55,11 @@ export async function POST(request) {
             status: 'OPEN', 
             createdBy: session.userId,
             createdAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
+            // --- MOVED: Now appears before the arrays ---
+            assignedManagerId: null, 
+            attachments: attachments,
+            replies: [] 
         };
         
         await db.collection('tickets').insertOne(newTicket);
@@ -61,7 +70,10 @@ export async function POST(request) {
             actionType: 'TICKET_CREATED',
             ticketStatus: 'OPEN',
             details: `${session.userId} created Ticket ID ${ticketid} with subject ${subject} and details ${body}.`,
-            priorityLevel: 'info'
+            priorityLevel: 'info',
+            assignedTo: 'N/A', 
+            replyTo: 'N/A',
+            attachments: attachments
         });
 
         return NextResponse.json({ message: 'Ticket created', ticketid }, { status: 201 });
@@ -72,9 +84,11 @@ export async function POST(request) {
                 userId: session.userId,
                 actionType: 'TICKET_CREATED',
                 ticketStatus: 'NA',
-                // Updated to include exact user ID
                 details: `Ticket creation by ${session.userId} fails due to server or database issue.`,
-                priorityLevel: 'error' 
+                priorityLevel: 'error',
+                assignedTo: 'N/A',
+                replyTo: 'N/A',
+                attachments: []
             });
         }
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
