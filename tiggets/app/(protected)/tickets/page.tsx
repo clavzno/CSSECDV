@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentSession } from '@/lib/rbac';
 import Sidebar from '@/components/Sidebar';
 import ManagerTickets from '@/components/ManagerTickets';
+import AdminTickets from '@/components/AdminTickets';
 
 export default async function TicketsPage() {
   const session = await getCurrentSession();
@@ -17,7 +18,7 @@ export default async function TicketsPage() {
       case "manager":
         return <ManagerTickets role={role} />;
       case "admin":
-        return <h1>blank</h1>;
+        return <AdminTickets role={role} />;
       case "customer":
         return <h1>blank</h1>;
       default:

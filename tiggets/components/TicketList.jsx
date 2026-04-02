@@ -9,9 +9,13 @@ const mockTickets = [
     { id: '#0142030', userId: '#0142030', subject: 'Graduation requirements...', type: 'Graduation requirements...', status: 'Pending', lastUpdate: 'August 5, 2020' },
 ];
 
+/**
+ * Only shows the Actions if they are a Manager
+ */
 export default function TicketList({ tickets, role }) {
     const isManager = role?.toLowerCase() === 'manager';
-    
+    const isAdmin = role?.toLowerCase() === 'admin';
+
     // Use the tickets sent from the parent, otherwise use local mockTickets
     const displayTickets = tickets || mockTickets;
 
@@ -36,7 +40,7 @@ export default function TicketList({ tickets, role }) {
                         <th className="py-4 px-6 font-semibold">Type</th>
                         <th className="py-4 px-6 font-semibold text-center">Status</th>
                         <th className="py-4 px-6 font-semibold text-center">Last Update</th>
-                        {isManager && <th className="py-4 px-6 font-semibold text-center">Details</th>}
+                        {(isManager || isAdmin) && <th className="py-4 px-6 font-semibold text-center">Details</th>}
                     </tr>
                 </thead>
                 <tbody>
@@ -68,8 +72,8 @@ export default function TicketList({ tickets, role }) {
                                 <td className="py-4 px-6 text-center whitespace-nowrap text-gray-600">
                                     <Link href={viewPath}>{ticket.lastUpdate}</Link>
                                 </td>
-                                {isManager && (
-                                    <td className="py-4 px-6 text-right">
+                                {(isManager || isAdmin) && (
+                                    <td className="py-4 px-6 text-center">
                                         <Link href={viewPath}>
                                             <button className="bg-tiggets-lightgreen hover:opacity-90 text-white px-5 py-1.5 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer">
                                                 View
