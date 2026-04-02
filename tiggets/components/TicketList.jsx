@@ -50,27 +50,26 @@ export default function TicketList({ tickets, role }) {
 
                         return (
                             <tr key={ticket.id} className="border-b border-border-gray hover:bg-div-gray/30 transition-colors bg-white">
-                                <td className="py-4 px-6 font-medium">
-                                    <Link href={viewPath}>{ticket.id}</Link>
+                                {/* PASTE THIS IN INSTEAD: */}
+                                <td className="py-4 px-6 font-medium text-zinc-800">
+                                    {ticket.id}
                                 </td>
-                                <td className="py-4 px-6">
-                                    <Link href={viewPath}>{ticket.userId || ticket.id}</Link> {/* Safely handles missing userIds */}
+                                <td className="py-4 px-6 text-zinc-800">
+                                    {ticket.userId || ticket.id}
                                 </td>
-                                <td className="py-4 px-6 truncate max-w-37.5">
-                                    <Link href={viewPath}>{ticket.subject}</Link>
+                                <td className="py-4 px-6 truncate max-w-37.5 text-zinc-800">
+                                    {ticket.subject}
                                 </td>
-                                <td className="py-4 px-6 max-w-37.5">
-                                    <Link href={viewPath}>{ticket.type}</Link>
+                                <td className="py-4 px-6 max-w-37.5 text-zinc-800">
+                                    {ticket.type}
                                 </td>
                                 <td className="py-4 px-6 text-center">
-                                    <Link href={viewPath}>
-                                        <span className={`px-4 py-1.5 rounded-full text-xs font-medium border ${setTicketStatusColor(ticket.status)}`}>
-                                            {ticket.status}
-                                        </span>
-                                    </Link>
+                                    <span className={`px-4 py-1.5 rounded-full text-xs font-medium border ${setTicketStatusColor(ticket.status)}`}>
+                                        {ticket.status}
+                                    </span>
                                 </td>
                                 <td className="py-4 px-6 text-center whitespace-nowrap text-gray-600">
-                                    <Link href={viewPath}>{ticket.lastUpdate}</Link>
+                                    {ticket.lastUpdate}
                                 </td>
                                 {(isManager || isAdmin) && (
                                     <td className="py-4 px-6 text-center">
