@@ -8,8 +8,10 @@ export default function ManagerDashboard({ role }) {
 
   return (
     <div className="w-full font-text text-foreground">
-      {/* Header */}
-      <h1 className="text-3xl font-bold mb-8">Dashboard</h1>
+      <div className="w-full mb-8">
+        {/* Header */}
+        <h1 className="text-3xl font-bold w-full">Dashboard</h1>
+      </div>
 
       {/* Top Cards Grid */}
       <div className="grid grid-cols-2 gap-8 mb-10">
