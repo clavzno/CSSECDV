@@ -1,3 +1,4 @@
+// rn just handles manager and admin view of tickets
 "use client";
 
 import { useState } from "react";
