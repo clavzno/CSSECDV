@@ -6,7 +6,7 @@ export function middleware(request) {
   const { pathname } = request.nextUrl;
 
   // 2. Define our public routes (Login, and eventually Registration)
-  const publicRoutes = ['/', '/register'];
+  const publicRoutes = ['/', '/register', '/CreateAccount', '/ForgotPassword'];
   const isPublicRoute = publicRoutes.includes(pathname);
 
   // 3. If they are trying to access a protected page WITHOUT a session cookie

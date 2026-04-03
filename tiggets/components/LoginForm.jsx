@@ -49,8 +49,16 @@ export default function LoginForm() {
     }
   }
 
+  function goToCreateAccount() {
+    router.push('/CreateAccount');
+  }
+
+  function goToForgotPassword() {
+    router.push('/ForgotPassword');
+  }
+
   return (
-    <div className="w-full max-w-md rounded-2xl bg-tiggets-green p-8 shadow-md">
+    <div className="w-full max-w-xl rounded-2xl bg-tiggets-green p-8 shadow-md">
       <div className="mb-6 flex justify-center">
         <Image
           src={Tiggets}
@@ -107,6 +115,13 @@ export default function LoginForm() {
             required
             className="rounded-lg border border-div-gray px-4 py-3 font-text text-foreground outline-none transition focus:border-tiggets-lightgreen bg-background"
           />
+          <button
+            type="button"
+            onClick={goToForgotPassword}
+            className="self-start text-xs font-text text-background underline underline-offset-2 transition hover:text-gray-200 hover:cursor-pointer"
+          >
+            Forgot password?
+          </button>
         </div>
 
         <label className="flex items-center gap-2 font-text text-sm text-background">
@@ -118,13 +133,23 @@ export default function LoginForm() {
           Remember me
         </label>
 
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="mt-2 rounded-lg bg-tiggets-lightgreen px-4 py-3 font-text font-semibold text-white transition hover:cursor-pointer drop-shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
-        >
-          {isLoading ? 'Signing In...' : 'Sign In'}
-        </button>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={goToCreateAccount}
+            className="rounded-lg bg-gray-500 px-4 py-3 font-text font-semibold text-white transition hover:cursor-pointer hover:bg-gray-600 drop-shadow-sm"
+          >
+            Create Account
+          </button>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="rounded-lg bg-tiggets-lightgreen px-4 py-3 font-text font-semibold text-white transition hover:cursor-pointer drop-shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {isLoading ? 'Signing In...' : 'Sign In'}
+          </button>
+        </div>
       </form>
     </div>
   );
