@@ -1,9 +1,19 @@
+// specific ticket page
+// this is the server page which will fetch data
 import ViewTicket from '@/components/ViewTicket';
 import ManagerViewTicket from '@/components/ManagerViewTicket';
-import { getCurrentSession } from '@/lib/rbac'; 
+import { getCurrentSession } from '@/lib/rbac';
 import { redirect } from 'next/navigation';
 
-export default async function ViewTicketPage({ params }: { params: any }) {
+import clientPromise from '@/lib/mongodb';
+
+type ViewTicketPageProps = {
+    params: {
+        ticketid: string;
+    };
+};
+
+export default async function ViewTicketPage({ params }: ViewTicketPageProps) {
     const session = await getCurrentSession();
 
     if (!session) {
@@ -11,10 +21,28 @@ export default async function ViewTicketPage({ params }: { params: any }) {
     }
 
     const isManager = session.role?.toLowerCase() === 'manager';
+    const currentTicketId = params.ticketid;
 
-    // THE FIX: We securely 'await' the params so Next.js gives us the actual string ID
-    const resolvedParams = await params;
-    const currentTicketId = resolvedParams.ticketid;
+    const client = await clientPromise;
+    const db = client.db();
+
+    const ticket = await db.collection('tickets').findOne(
+        { ticketid: currentTicketId },
+        {
+            projection: {
+                _id: 0,
+            },
+        }
+    );
+
+    // return not found 
+    if (!ticket) {
+        return (
+            <main className="ml-56 min-h-screen bg-background p-6">
+                <h1 className="text-3xl font-bold mb-8">Not found.</h1>
+            </main>
+        );
+    }
 
     return (
         <main className="ml-56 min-h-screen bg-background p-6">

@@ -1,7 +1,7 @@
 // content for admin dashboard
 import TicketList from '@/components/TicketList';
 
-export default function AdminDashboard({ role }) {
+export default function AdminDashboard({ role, tickets }) {
     // TODO: call a security function here that checks the role
     if (role?.toLowerCase() != "admin") {
         return null;
@@ -37,7 +37,7 @@ export default function AdminDashboard({ role }) {
                 </div>
 
                 {/* Ticket List */}
-                <TicketList role={role} />
+                <TicketList role={role} tickets={tickets} />
             </div>
     );
 }

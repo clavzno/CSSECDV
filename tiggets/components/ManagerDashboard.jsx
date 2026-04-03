@@ -1,6 +1,6 @@
 import TicketList from '@/components/TicketList';
 
-export default function ManagerDashboard({ role }) {
+export default function ManagerDashboard({ role, tickets }) {
   // TODO: call a security function here that checks the role
   if (role?.toLowerCase() != "manager") {
     return null;
@@ -30,7 +30,7 @@ export default function ManagerDashboard({ role }) {
       </div>
 
       {/* Ticket Table */}
-      <TicketList role={role} />
+      <TicketList role={role} tickets={tickets} />
     </div>
   );
 }

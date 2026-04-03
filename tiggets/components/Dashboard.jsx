@@ -1,27 +1,106 @@
 import AdminDashboard from '@/components/AdminDashboard';
 import ManagerDashboard from '@/components/ManagerDashboard';
 import CustomerDashboard from '@/components/CustomerDashboard';
+import clientPromise from '@/lib/mongodb';
+
+async function mapReply(reply) {
+  return {
+    replyId: String(reply?.replyId ?? ''),
+    senderId: String(reply?.senderId ?? ''),
+    message: String(reply?.message ?? ''),
+    timestamp: reply?.timestamp
+      ? new Date(reply.timestamp).toISOString()
+      : '',
+    attachments: Array.isArray(reply?.attachments) ? reply.attachments : [],
+  };
+}
+
+async function mapTicket(ticket) {
+  return {
+    _id: String(ticket?._id ?? ''),
+    ticketid: String(ticket?.ticketid ?? ticket?.ticketId ?? ''),
+    subject: String(ticket?.subject ?? ''),
+    type: String(ticket?.type ?? ''),
+    body: String(ticket?.body ?? ''),
+    status: String(ticket?.status ?? ''),
+    createdBy: String(ticket?.createdBy ?? ''),
+    createdAt: ticket?.createdAt
+      ? new Date(ticket.createdAt).toISOString()
+      : '',
+    assignedManagerId: ticket?.assignedManagerId
+      ? String(ticket.assignedManagerId)
+      : 'N/A',
+    attachments: Array.isArray(ticket?.attachments) ? ticket.attachments : [],
+    replies: Array.isArray(ticket?.replies)
+      ? await Promise.all(ticket.replies.map(mapReply))
+      : [],
+  };
+}
+
+async function getTicketsForRole(role, session) {
+  const client = await clientPromise;
+  const db = client.db('TicketingSystem');
+  const ticketsCollection = db.collection('tickets');
+
+  const userId = session?.userId ? String(session.userId) : null;
+  const username = session?.username ? String(session.username) : null;
+
+  let query = {};
+
+  if (role === 'manager') {
+    const assignedManagerMatches = [];
+
+    if (userId) assignedManagerMatches.push({ assignedTo: userId });
+    if (username) assignedManagerMatches.push({ assignedTo: username });
+
+    query =
+      assignedManagerMatches.length > 0
+        ? { $or: assignedManagerMatches }
+        : { assignedTo: null };
+  } else if (role === 'customer') {
+    const createdByMatches = [];
+
+    if (userId) createdByMatches.push({ createdBy: userId });
+    if (username) createdByMatches.push({ createdBy: username });
+
+    query =
+      createdByMatches.length > 0
+        ? { $or: createdByMatches }
+        : { createdBy: null };
+  }
+
+  const tickets = await ticketsCollection
+    .find(query)
+    .sort({ createdAt: -1 })
+    .toArray();
+
+  return Promise.all(tickets.map(mapTicket));
+}
 
 // session is called in page.tsx for dashboard
-export default function Dashboard({ role }) {
+export default async function Dashboard({ role, session }) {
+  const normalizedRole = role?.toLowerCase();
+  const tickets = await getTicketsForRole(normalizedRole, session);
 
-    // all subcomponents should have <div className="w-full font-text text-foreground">
-    function renderContent() {
-        switch (role) {
-            case "admin":
-                return <AdminDashboard role={role} />;
-            case "manager":
-                return <ManagerDashboard role={role} />;
-            case "customer":
-                return <CustomerDashboard role={role} />;
-            default:
-                return <h1>Content unavailable; Please log in.</h1>;
-        }
+  function renderContent() {
+    switch (normalizedRole) {
+      case 'admin':
+        return <AdminDashboard role={normalizedRole} tickets={tickets} />;
+
+      case 'manager':
+        return <ManagerDashboard role={normalizedRole} tickets={tickets} />;
+
+      case 'customer':
+        return <CustomerDashboard role={normalizedRole} tickets={tickets} />;
+
+      default:
+        return <h1>Content unavailable; Please log in.</h1>;
     }
+  }
 
-    return (
-        <div className="w-full font-text text-foreground">
-            {renderContent()}
-        </div>
-    );
+  return (
+    <div className="w-full font-text text-foreground">
+      {renderContent()}
+    </div>
+  );
 }

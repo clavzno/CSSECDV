@@ -57,7 +57,7 @@ export async function POST(request) {
             createdAt: new Date(),
             updatedAt: new Date(),
             // --- MOVED: Now appears before the arrays ---
-            assignedManagerId: null, 
+            assignedTo: null, // assignedManagerId 
             attachments: attachments,
             replies: [] 
         };
