@@ -9,6 +9,7 @@ export default function ManagerAdminTickets({ role, session, tickets }) {
   const normalizedRole = role?.toLowerCase();
   const isManager = normalizedRole === "manager";
   const isAdmin = normalizedRole === "admin";
+  const canShowMyTickets = isManager;
 
   const [showFilters, setShowFilters] = useState(false);
   const [showMyTickets, setShowMyTickets] = useState(false);
@@ -77,7 +78,7 @@ export default function ManagerAdminTickets({ role, session, tickets }) {
     const matchesType = filters.type === "" || ticket.type === filters.type;
     const matchesStatus = filters.status === "" || ticket.status === filters.status;
 
-    const matchesAssignment = showMyTickets
+    const matchesAssignment = canShowMyTickets && showMyTickets
       ? ticket.assignedTo === String(session?.userId ?? "")
       : true;
 
@@ -105,11 +106,10 @@ export default function ManagerAdminTickets({ role, session, tickets }) {
         <div className="mb-4 flex w-full flex-col items-center gap-6 px-6 sm:flex-row">
           <button
             onClick={() => setShowFilters((prev) => !prev)}
-            className={`flex w-full cursor-pointer items-center justify-center gap-3 rounded-sm border px-4 py-2 text-sm font-medium shadow-sm transition-all sm:w-35 ${
-              showFilters
-                ? "border-[#3b5949] text-[#3b5949]"
-                : "border-zinc-300 bg-white text-zinc-400"
-            }`}
+            className={`flex w-full cursor-pointer items-center justify-center gap-3 rounded-sm border px-4 py-2 text-sm font-medium shadow-sm transition-all sm:w-35 ${showFilters
+              ? "border-[#3b5949] text-[#3b5949]"
+              : "border-zinc-300 bg-white text-zinc-400"
+              }`}
           >
             <Filter size={18} />
             Filters
@@ -128,17 +128,18 @@ export default function ManagerAdminTickets({ role, session, tickets }) {
             </div>
           </div>
 
-          <button
-            onClick={() => setShowMyTickets((prev) => !prev)}
-            className={`flex cursor-pointer items-center justify-center gap-3 rounded-full border px-6 py-2 text-sm font-medium shadow-sm transition-all ${
-              showMyTickets
-                ? "border-transparent bg-tiggets-lightgreen text-white"
-                : "border-zinc-300 bg-white text-zinc-400 hover:border-zinc-400"
-            }`}
-          >
-            {showMyTickets ? <CheckCircle2 size={18} /> : <Circle size={18} />}
-            Show My Tickets
-          </button>
+          {canShowMyTickets && (
+            <button
+              onClick={() => setShowMyTickets((prev) => !prev)}
+              className={`flex cursor-pointer items-center justify-center gap-3 rounded-full border px-6 py-2 text-sm font-medium shadow-sm transition-all ${showMyTickets
+                  ? "border-transparent bg-tiggets-lightgreen text-white"
+                  : "border-zinc-300 bg-white text-zinc-400 hover:border-zinc-400"
+                }`}
+            >
+              {showMyTickets ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+              Show My Tickets
+            </button>
+          )}
         </div>
 
         {showFilters && (

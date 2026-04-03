@@ -83,6 +83,8 @@ export async function PUT(request, { params }) {
                     });
                     return NextResponse.json({ error: 'Target user lacks manager permissions' }, { status: 403 });
                 }
+                // do not remove this
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (err) {
                 return NextResponse.json({ error: 'Invalid Manager ID format' }, { status: 400 });
             }
