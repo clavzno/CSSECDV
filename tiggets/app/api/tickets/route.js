@@ -78,6 +78,8 @@ export async function POST(request) {
 
         return NextResponse.json({ message: 'Ticket created', ticketid }, { status: 201 });
 
+        // do not remove this
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
         if (session) {
             await createLog({
