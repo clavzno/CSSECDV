@@ -12,8 +12,8 @@ const mockUsers = [
 export default function UserManagement({ role, session, users }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [roleFilter, setRoleFilter] = useState(''); 
-  const [sortBy, setSortBy] = useState('numerical'); 
+  const [roleFilter, setRoleFilter] = useState('');
+  const [sortBy, setSortBy] = useState('numerical');
 
   if (role?.toLowerCase() !== 'manager' && role?.toLowerCase() !== 'admin') {
     return <div className="p-6 font-text">Access Denied.</div>;
@@ -28,13 +28,13 @@ export default function UserManagement({ role, session, users }) {
   const dataToUse = users || mockUsers;
 
   let processedUsers = dataToUse.filter(user => {
-    const matchesSearch = 
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.id.includes(searchTerm);
-    
+    const matchesSearch =
+      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.id.includes(searchTerm);
+
     const matchesRole = roleFilter === '' || user.role === roleFilter;
-    
+
     return matchesSearch && matchesRole;
   });
 
@@ -50,16 +50,17 @@ export default function UserManagement({ role, session, users }) {
 
   return (
     <div className="w-full font-text text-foreground">
-      
+
       <div className="w-full mb-8">
-        <h1 className="text-3xl font-bold w-full text-black">User Management</h1>
+        {/* Header */}
+        <h1 className="text-3xl font-bold w-full">User Management</h1>
       </div>
 
-      <div className="bg-[#e2e2e2] pt-8 flex flex-col min-h-[600px] rounded-t-md shadow-sm border border-zinc-300">
-        
+      <div className="bg-[#e2e2e2] pt-8 flex flex-col min-h-150 rounded-t-md shadow-sm border border-zinc-300">
+
         <div className="flex flex-col sm:flex-row items-center gap-6 px-6 mb-4 w-full">
-          
-          <button 
+
+          <button
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center justify-center gap-3 bg-white border px-4 py-2 rounded-sm text-sm font-medium transition-all shadow-sm cursor-pointer w-full sm:w-35 ${showFilters ? 'border-[#3b5949] text-[#3b5949]' : 'border-zinc-300 text-zinc-400'}`}
           >
@@ -70,7 +71,7 @@ export default function UserManagement({ role, session, users }) {
           <div className="flex bg-white border border-zinc-300 rounded-sm w-full max-w-112.5 shadow-sm overflow-hidden focus-within:ring-1 focus-within:ring-[#3b5949]">
             <input
               type="text"
-              placeholder="Quick search..." 
+              placeholder="Quick search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="flex-1 px-4 py-2 text-sm outline-none text-zinc-700 placeholder:text-zinc-400"
@@ -83,8 +84,8 @@ export default function UserManagement({ role, session, users }) {
 
         {showFilters && (
           <div className="px-6 mb-8 grid grid-cols-1 sm:grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-2">
-            <select 
-              value={roleFilter} 
+            <select
+              value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
               className="bg-white border border-zinc-300 rounded-sm px-3 py-2 text-xs outline-none focus:border-[#3b5949] text-zinc-500 cursor-pointer"
             >
@@ -94,8 +95,8 @@ export default function UserManagement({ role, session, users }) {
               <option value="customer">Customer</option>
             </select>
 
-            <select 
-              value={sortBy} 
+            <select
+              value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               className="bg-white border border-zinc-300 rounded-sm px-3 py-2 text-xs outline-none focus:border-[#3b5949] text-zinc-500 cursor-pointer"
             >
@@ -133,14 +134,14 @@ export default function UserManagement({ role, session, users }) {
                     <td className="py-4 px-6 text-center text-zinc-800">{user.active}</td>
                     <td className="py-4 px-6 text-center text-zinc-800">{user.all}</td>
                     <td className="py-4 px-6 text-center">
-                      
+
                       {/* DB LOGIC: Only render the Manage button if the user is NOT an admin */}
                       {user.role?.toLowerCase() !== 'admin' && (
                         <button className="bg-tiggets-lightgreen hover:opacity-90 text-white px-5 py-1.5 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer">
                           Manage
                         </button>
                       )}
-                      
+
                     </td>
                   </tr>
                 ))}
