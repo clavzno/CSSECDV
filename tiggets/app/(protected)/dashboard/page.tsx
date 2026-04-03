@@ -12,5 +12,9 @@ export default async function DashboardPage() {
   }
 
   //Pass the verified role to the client component
-  return <Dashboard role={session.role} />;
+  return (
+        <main className="ml-56 min-h-screen bg-background p-6">
+          <Dashboard role={session.role} />
+        </main>
+  );
 }
