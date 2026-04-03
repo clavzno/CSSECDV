@@ -1,7 +1,7 @@
 // has a similar view as ManagerTickets, but admins cannot assign themselves or change status
 "use client";
 import { useState } from 'react';
-import { Filter, Search, CheckCircle2, Circle, X } from 'lucide-react';
+import { Filter, Search, X } from 'lucide-react';
 // content
 import TicketList from '@/components/TicketList';
 
@@ -52,6 +52,7 @@ export default function AdminTickets({ role }) {
 
     const [filters, setFilters] = useState({
         id: '',
+        userId: '',
         subject: '',
         type: '',
         status: '',
@@ -65,21 +66,47 @@ export default function AdminTickets({ role }) {
     };
 
     const clearFilters = () => {
-        setFilters({ id: '', subject: '', type: '', status: '' });
+        setFilters({
+            id: '',
+            userId: '',
+            subject: '',
+            type: '',
+            status: '',
+        });
         setSearchTerm('');
     };
 
     const filteredTickets = mockTickets.filter((ticket) => {
         const matchesSearch =
             ticket.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            ticket.id.includes(searchTerm);
+            ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            ticket.userId.toLowerCase().includes(searchTerm.toLowerCase());
 
-        const matchesId = ticket.id.toLowerCase().includes(filters.id.toLowerCase());
-        const matchesSubject = ticket.subject.toLowerCase().includes(filters.subject.toLowerCase());
-        const matchesType = filters.type === '' || ticket.type === filters.type;
-        const matchesStatus = filters.status === '' || ticket.status === filters.status;
+        const matchesId =
+            filters.id === '' ||
+            ticket.id.toLowerCase().includes(filters.id.toLowerCase());
 
-        return matchesSearch && matchesId && matchesSubject && matchesType && matchesStatus;
+        const matchesUserId =
+            filters.userId === '' ||
+            ticket.userId.toLowerCase().includes(filters.userId.toLowerCase());
+
+        const matchesSubject =
+            ticket.subject.toLowerCase().includes(filters.subject.toLowerCase());
+
+        const matchesType =
+            filters.type === '' || ticket.type === filters.type;
+
+        const matchesStatus =
+            filters.status === '' || ticket.status === filters.status;
+
+        return (
+            matchesSearch &&
+            matchesId &&
+            matchesUserId &&
+            matchesSubject &&
+            matchesType &&
+            matchesStatus
+        );
     });
 
     return (
@@ -118,13 +145,23 @@ export default function AdminTickets({ role }) {
                 {/* Expanded Filters Section */}
                 {showFilters && (
                     <div className="px-6 mb-8 grid grid-cols-1 sm:grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-2">
+                        {/** Ticket ID */}
                         <input
                             name="id"
                             value={filters.id}
                             onChange={handleFilterChange}
-                            placeholder="Filter by ID#"
+                            placeholder="Filter by Ticket ID#"
                             className="bg-white border border-zinc-300 rounded-sm px-3 py-2 text-xs outline-none focus:border-[#3b5949]"
                         />
+
+                        <input
+                            name="userId"
+                            value={filters.userId}
+                            onChange={handleFilterChange}
+                            placeholder="Filter by User ID#"
+                            className="bg-white border border-zinc-300 rounded-sm px-3 py-2 text-xs outline-none focus:border-[#3b5949]"
+                        />
+
                         <input
                             name="subject"
                             value={filters.subject}
