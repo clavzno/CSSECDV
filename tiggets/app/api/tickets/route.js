@@ -46,7 +46,6 @@ export async function POST(request) {
         const db = client.db('TicketingSystem');
         const ticketid = `#${Math.floor(100000 + Math.random() * 900000)}`;
 
-        // --- REORDERED OBJECT ---
         const newTicket = {
             ticketid, 
             subject,
@@ -56,11 +55,11 @@ export async function POST(request) {
             createdBy: session.userId,
             createdAt: new Date(),
             updatedAt: new Date(),
-            // --- MOVED: Now appears before the arrays ---
-            assignedTo: null, // assignedManagerId 
+            // Unified naming structure right here
+            assignedTo: null, 
             attachments: attachments,
             replies: [],
-            editedAt: null, 
+            editedAt: null,
             editedBy: null
         };
         
@@ -80,8 +79,6 @@ export async function POST(request) {
 
         return NextResponse.json({ message: 'Ticket created', ticketid }, { status: 201 });
 
-        // do not remove this
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
         if (session) {
             await createLog({

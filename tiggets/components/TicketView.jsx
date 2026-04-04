@@ -1,7 +1,7 @@
-// rn just handles manager and admin view of tickets
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   XCircle,
@@ -16,7 +16,11 @@ import {
 } from "lucide-react";
 
 export default function TicketView({ ticketId, role, ticket, currentUserId }) {
-  const cleanId = String(ticketId ?? "").replace("#", "");
+  const router = useRouter();
+  
+  // --- NEW: Force clean the ID to strip out all # symbols
+  const cleanId = String(ticket?.id ?? ticketId ?? "").replace(/#/g, "");
+  
   const normalizedRole = role?.toLowerCase();
   const isManager = normalizedRole === "manager";
   const isAdmin = normalizedRole === "admin";
@@ -32,16 +36,7 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
     author: "System",
     createdAt: "Just now",
     attachment: null,
-    replies: [
-      {
-        id: "1",
-        author: "System",
-        date: "Just now",
-        content: `This is a generic view for ticket #${cleanId}. Real data will populate here when the database is connected.`,
-        attachment: null,
-        isEdited: false,
-      },
-    ],
+    replies: [],
   };
 
   const normalizedAssignedTo = String(activeTicket.assignedTo ?? "").trim();
@@ -69,7 +64,6 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
 
   const [activeMessageMenu, setActiveMessageMenu] = useState(null);
   const [replyText, setReplyText] = useState("");
-  const [replies, setReplies] = useState(activeTicket.replies ?? []);
 
   const getStatusColors = (currentStatus) => {
     switch (currentStatus) {
@@ -86,66 +80,117 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
     }
   };
 
-  const handleToggleAssignment = () => {
+  const handleToggleAssignment = async () => {
     if (!canModifyTicket) return;
     if (assignmentState !== "unassigned") return;
 
-    console.log(
-      `[Database Alert] Update ticket ${cleanId} assignment to manager ID: ${normalizedCurrentUserId}`
-    );
-    setAssignmentState("me");
+    try {
+      const res = await fetch(`/api/tickets/%23${encodeURIComponent(cleanId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignedTo: currentUserId }),
+      });
+
+      if (res.ok) {
+        setAssignmentState("me");
+        router.refresh(); 
+      }
+    } catch (error) {
+      console.error("Failed to assign ticket:", error);
+    }
   };
 
-  const handleStatusChange = (newStatus) => {
+  const handleStatusChange = async (newStatus) => {
     if (!canModifyTicket) return;
 
-    console.log(`[Database Alert] Update ticket ${cleanId} status to: ${newStatus}`);
-    setStatus(newStatus);
-    setIsStatusDropdownOpen(false);
+    try {
+      const res = await fetch(`/api/tickets/%23${encodeURIComponent(cleanId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (res.ok) {
+        setStatus(newStatus);
+        setIsStatusDropdownOpen(false);
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    }
   };
 
-  const handlePostReply = () => {
+  const handlePostReply = async () => {
     if (!canModifyTicket || !replyText.trim()) return;
 
-    console.log(`[Database Alert] Posting new reply to ticket ${cleanId}: ${replyText}`);
+    try {
+      const res = await fetch(`/api/tickets/%23${encodeURIComponent(cleanId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newMessage: replyText }),
+      });
 
-    const newReply = {
-      id: String(Date.now()),
-      author: "Manager (You)",
-      date: "Just now",
-      content: replyText,
-      attachment: null,
-      isEdited: false,
-    };
-
-    setReplies([...replies, newReply]);
-    setReplyText("");
+      if (res.ok) {
+        setReplyText("");
+        router.refresh(); 
+      }
+    } catch (error) {
+      console.error("Failed to post reply:", error);
+    }
   };
 
-  const handleDeleteReply = (replyId) => {
+  const handleDeleteReply = async (replyId) => {
     if (!canModifyTicket) return;
 
-    console.log(`[Database Alert] Deleting reply ID ${replyId} from ticket ${cleanId}`);
-    setReplies(replies.filter((reply) => reply.id !== replyId));
-    setActiveMessageMenu(null);
+    try {
+      const res = await fetch(`/api/tickets/%23${encodeURIComponent(cleanId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deleteReplyId: replyId }), 
+      });
+
+      if (res.ok) {
+        setActiveMessageMenu(null);
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Failed to delete reply:", error);
+    }
   };
 
-  const handleEditReply = (replyId) => {
+  const handleEditReply = async (replyId) => {
     if (!canModifyTicket) return;
 
-    console.log(`[Database Alert] Editing reply ID ${replyId} on ticket ${cleanId}`);
-    alert("Edit functionality will be wired up to the database here!");
-    setActiveMessageMenu(null);
+    const currentMessage = activeTicket.replies.find((r) => r.id === replyId)?.content;
+    const newText = window.prompt("Edit your message:", currentMessage);
+
+    if (newText && newText !== currentMessage) {
+      try {
+        const res = await fetch(`/api/tickets/%23${encodeURIComponent(cleanId)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ replyId: replyId, message: newText }),
+        });
+
+        if (res.ok) {
+          setActiveMessageMenu(null);
+          router.refresh(); 
+        }
+      } catch (error) {
+        console.error("Failed to edit reply:", error);
+      }
+    }
   };
 
   const actionBoxBaseClass =
     "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors min-h-[44px]";
 
+  // --- NEW: Forced hardcoded mask for the sidebar
   const assignedLabel =
     assignmentState === "me"
       ? "You"
       : assignmentState === "other"
-        ? normalizedAssignedTo
+        ? "Customer Support"
         : "None";
 
   return (
@@ -154,7 +199,8 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-              <p className="mb-2 text-sm font-medium text-zinc-500">Ticket #{activeTicket.id}</p>
+              {/* Render strictly cleanId with a single # */}
+              <p className="mb-2 text-sm font-medium text-zinc-500">Ticket #{cleanId}</p>
               <h1 className="mb-2 text-3xl font-bold text-zinc-800">
                 &quot;{activeTicket.subject}&quot;
               </h1>
@@ -201,7 +247,7 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
 
           <div className="rounded-lg border border-zinc-200 bg-gray-100 p-4">
             <div className="space-y-4">
-              {replies.map((reply) => (
+              {activeTicket.replies.map((reply) => (
                 <div key={reply.id} className="space-y-3">
                   <div className="space-y-3 rounded-lg bg-gray-200 p-4">
                     <div className="flex items-start justify-between">
@@ -213,7 +259,7 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
                         )}
                       </div>
 
-                      {canModifyTicket && (
+                      {(isAdmin || (canModifyTicket && reply.authorId === currentUserId)) && (
                         <div className="relative">
                           <button
                             onClick={() =>

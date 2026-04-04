@@ -3,7 +3,7 @@ import clientPromise from '@/lib/mongodb';
 import { getCurrentSession } from '@/lib/rbac';
 import { createLog } from '@/lib/logger';
 import crypto from 'crypto'; 
-import { ObjectId } from 'mongodb'; // Ensure ObjectId is imported for role validation
+import { ObjectId } from 'mongodb'; 
 
 export async function PUT(request, { params }) {
     let session;
@@ -15,7 +15,6 @@ export async function PUT(request, { params }) {
         const ticketid = resolvedParams.ticketid; 
         const updates = await request.json(); 
         
-        // Setup defaults for incoming updates
         const incomingReplyId = updates.replyId || 'N/A';
         const incomingAttachments = updates.attachments || [];
 
@@ -26,7 +25,7 @@ export async function PUT(request, { params }) {
                 userId: session.userId,
                 actionType: isStatusChange ? 'TICKET_STATUS_CHANGE' : 'TICKET_EDITED',
                 ticketStatus: 'NA', 
-                details: `Authorized edit by ${session.userId} fails due to validation issue: Invalid or missing update data.`,
+                details: `Authorized edit by ${session.userId} fails due to validation issue.`,
                 priorityLevel: 'error',
                 assignedTo: 'N/A', 
                 replyTo: incomingReplyId,
@@ -41,7 +40,7 @@ export async function PUT(request, { params }) {
         const existingTicket = await db.collection('tickets').findOne({ ticketid });
         if (!existingTicket) return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
 
-        const currentAssignedManager = existingTicket.assignedManagerId || 'N/A';
+        const currentAssignedManager = existingTicket.assignedTo || 'N/A';
 
         // --- 🚨 CRITICAL CHECK: Security & Ownership ---
         if (session.role === 'customer' && existingTicket.createdBy.toString() !== session.userId.toString()) {
@@ -50,7 +49,7 @@ export async function PUT(request, { params }) {
                 userId: session.userId,
                 actionType: actionType,
                 ticketStatus: existingTicket.status,
-                details: `${session.userId} attempts to edit another user's content or tampers with identifiers on ticket ${ticketid}.`,
+                details: `${session.userId} attempts to edit unauthorized content on ticket ${ticketid}.`,
                 priorityLevel: 'critical',
                 assignedTo: currentAssignedManager,
                 replyTo: incomingReplyId,
@@ -59,13 +58,11 @@ export async function PUT(request, { params }) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
-        // ==========================================
-        // 🛡️ SECURITY: VALIDATE MANAGER ASSIGNMENT
-        // ==========================================
-        if (updates.assignedManagerId) {
+        // --- 🛡️ SECURITY: VALIDATE MANAGER ASSIGNMENT ---
+        if (updates.assignedTo) {
             try {
                 const targetUser = await db.collection('users').findOne({ 
-                    _id: new ObjectId(updates.assignedManagerId) 
+                    _id: new ObjectId(updates.assignedTo) 
                 });
 
                 if (!targetUser || (targetUser.role !== 'manager' && targetUser.role !== 'admin')) {
@@ -73,7 +70,7 @@ export async function PUT(request, { params }) {
                         userId: session.userId,
                         actionType: 'TICKET_ASSIGN_FAIL',
                         ticketStatus: existingTicket.status,
-                        details: `${session.userId} attempted to assign ticket ${ticketid} to unauthorized user ID: ${updates.assignedManagerId}.`,
+                        details: `${session.userId} attempted unauthorized assignment to ${updates.assignedTo}.`,
                         priorityLevel: 'error',
                         assignedTo: currentAssignedManager,
                         replyTo: 'N/A',
@@ -87,7 +84,30 @@ export async function PUT(request, { params }) {
         }
 
         // ==========================================
-        // 💬 NEW: ADDING A NEW REPLY (FLAT CHAT)
+        // 🛡️ SECURITY: VALIDATE REPLY OWNERSHIP
+        // ==========================================
+        const actionReplyId = updates.replyId || updates.deleteReplyId;
+        if (actionReplyId) {
+            const targetReply = existingTicket.replies?.find(r => r.replyId === actionReplyId);
+            
+            // Block if reply exists, user is NOT an admin, and user did NOT write the reply
+            if (targetReply && session.role !== 'admin' && targetReply.senderId.toString() !== session.userId.toString()) {
+                await createLog({
+                    userId: session.userId,
+                    actionType: 'TICKET_EDITED',
+                    ticketStatus: existingTicket.status,
+                    details: `${session.userId} attempted unauthorized modification/deletion of reply ${actionReplyId}.`,
+                    priorityLevel: 'error',
+                    assignedTo: currentAssignedManager,
+                    replyTo: actionReplyId,
+                    attachments: []
+                });
+                return NextResponse.json({ error: 'You can only modify or delete your own replies' }, { status: 403 });
+            }
+        }
+
+        // ==========================================
+        // 💬 NEW REPLY (FLAT CHAT)
         // ==========================================
         if (updates.newMessage) {
             const newReplyId = `rep_${crypto.randomUUID()}`;
@@ -97,7 +117,6 @@ export async function PUT(request, { params }) {
                 senderId: session.userId,
                 message: updates.newMessage,
                 timestamp: new Date(),
-                // --- NEW FIELDS ADDED HERE ---
                 editedAt: null,
                 editedBy: null,
                 attachments: incomingAttachments 
@@ -126,36 +145,57 @@ export async function PUT(request, { params }) {
         }
 
         // ==========================================
-        // ✏️ EXISTING: EDITING, STATUS, OR ASSIGNMENT
+        // ✏️ EDITING, DELETING, OR TICKET STATUS
         // ==========================================
         
-        // --- UPDATED EDIT LOGIC FOR REPLY FIELDS ---
         if (updates.replyId && updates.message) {
+            // EDIT SPECIFIC REPLY
             await db.collection('tickets').updateOne(
                 { ticketid, "replies.replyId": updates.replyId },
                 { 
                     $set: { 
                         "replies.$.message": updates.message,
-                        "replies.$.editedAt": new Date(), // Set edit timestamp
-                        "replies.$.editedBy": session.userId, // Set editor ID
+                        "replies.$.editedAt": new Date(), 
+                        "replies.$.editedBy": session.userId, 
                         updatedAt: new Date() 
                     } 
                 }
             );
+        } else if (updates.deleteReplyId) {
+            // DELETE SPECIFIC REPLY
+            await db.collection('tickets').updateOne(
+                { ticketid },
+                { 
+                    $pull: { replies: { replyId: updates.deleteReplyId } },
+                    $set: { updatedAt: new Date() }
+                }
+            );
+            await createLog({
+                userId: session.userId,
+                actionType: 'TICKET_EDITED',
+                ticketStatus: existingTicket.status,
+                details: `${session.userId} deleted reply ${updates.deleteReplyId} on ticket ${ticketid}.`,
+                priorityLevel: 'info',
+                assignedTo: currentAssignedManager,
+                replyTo: 'N/A',
+                attachments: []
+            });
+            return NextResponse.json({ message: 'Reply deleted successfully' }, { status: 200 });
         } else {
+            // STANDARD TICKET-LEVEL UPDATES
             await db.collection('tickets').updateOne(
                 { ticketid },
                 { $set: { ...updates, updatedAt: new Date() } }
             );
         }
 
-        // --- INFO LOGGING ---
+        // --- INFO LOGGING FOR STANDARD UPDATES ---
         if (updates.status) {
             await createLog({
                 userId: session.userId,
                 actionType: 'TICKET_STATUS_CHANGE',
                 ticketStatus: updates.status, 
-                details: `${session.userId} has edited the status of ${ticketid} to ${updates.status}.`,
+                details: `${session.userId} edited ticket status to ${updates.status}.`,
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
                 replyTo: 'N/A', 
@@ -166,31 +206,20 @@ export async function PUT(request, { params }) {
                 userId: session.userId,
                 actionType: 'TICKET_EDITED',
                 ticketStatus: existingTicket.status,
-                details: `${session.userId} has edited reply ${updates.replyId} to message ${ticketid}`,
+                details: `${session.userId} edited reply ${updates.replyId} on ticket ${ticketid}`,
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
                 replyTo: updates.replyId, 
                 attachments: incomingAttachments
             });
-        } else if (updates.assignedManagerId) {
+        } else if (updates.assignedTo) {
             await createLog({
                 userId: session.userId,
                 actionType: 'TICKET_ASSIGNED', 
                 ticketStatus: existingTicket.status,
-                details: `${session.userId} assigned ticket ${ticketid} to manager ${updates.assignedManagerId}.`,
+                details: `${session.userId} assigned ticket ${ticketid} to manager ${updates.assignedTo}.`,
                 priorityLevel: 'info',
-                assignedTo: updates.assignedManagerId, 
-                replyTo: 'N/A', 
-                attachments: incomingAttachments
-            });
-        } else {
-            await createLog({
-                userId: session.userId,
-                actionType: 'TICKET_EDITED',
-                ticketStatus: existingTicket.status,
-                details: `${session.userId} has edited starting post in message ${ticketid}`,
-                priorityLevel: 'info',
-                assignedTo: currentAssignedManager,
+                assignedTo: updates.assignedTo, 
                 replyTo: 'N/A', 
                 attachments: incomingAttachments
             });
@@ -200,18 +229,6 @@ export async function PUT(request, { params }) {
 
     } catch (error) {
         console.error('Ticket Update Error:', error);
-        if (session) {
-            await createLog({
-                userId: session.userId,
-                actionType: 'TICKET_EDITED', 
-                ticketStatus: 'NA',
-                details: `Authorized edit by ${session.userId} fails due to server or database issue.`,
-                priorityLevel: 'error',
-                assignedTo: 'N/A',
-                replyTo: 'N/A',
-                attachments: []
-            });
-        }
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
