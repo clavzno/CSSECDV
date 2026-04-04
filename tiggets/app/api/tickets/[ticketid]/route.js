@@ -90,7 +90,6 @@ export async function PUT(request, { params }) {
         if (actionReplyId) {
             const targetReply = existingTicket.replies?.find(r => r.replyId === actionReplyId);
             
-            // Block if reply exists, user is NOT an admin, and user did NOT write the reply
             if (targetReply && session.role !== 'admin' && targetReply.senderId.toString() !== session.userId.toString()) {
                 await createLog({
                     userId: session.userId,
@@ -148,6 +147,9 @@ export async function PUT(request, { params }) {
         // ✏️ EDITING, DELETING, OR TICKET STATUS
         // ==========================================
         
+        // Ensure log timestamp perfectly matches database timestamp
+        const actionTimestamp = new Date(); 
+
         if (updates.replyId && updates.message) {
             // EDIT SPECIFIC REPLY
             await db.collection('tickets').updateOne(
@@ -155,7 +157,7 @@ export async function PUT(request, { params }) {
                 { 
                     $set: { 
                         "replies.$.message": updates.message,
-                        "replies.$.editedAt": new Date(), 
+                        "replies.$.editedAt": actionTimestamp, 
                         "replies.$.editedBy": session.userId, 
                         updatedAt: new Date() 
                     } 
@@ -183,9 +185,17 @@ export async function PUT(request, { params }) {
             return NextResponse.json({ message: 'Reply deleted successfully' }, { status: 200 });
         } else {
             // STANDARD TICKET-LEVEL UPDATES
+            const setPayload = { ...updates, updatedAt: new Date() };
+            
+            // NEW: If they edit the main starting post (body/subject), stamp it with edit fields
+            if (updates.body || updates.subject) {
+                setPayload.editedAt = actionTimestamp;
+                setPayload.editedBy = session.userId;
+            }
+
             await db.collection('tickets').updateOne(
                 { ticketid },
-                { $set: { ...updates, updatedAt: new Date() } }
+                { $set: setPayload }
             );
         }
 
@@ -202,6 +212,7 @@ export async function PUT(request, { params }) {
                 attachments: incomingAttachments
             });
         } else if (updates.replyId) {
+            // --- NEW: Logging edited fields for replies ---
             await createLog({
                 userId: session.userId,
                 actionType: 'TICKET_EDITED',
@@ -210,7 +221,9 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
                 replyTo: updates.replyId, 
-                attachments: incomingAttachments
+                attachments: incomingAttachments,
+                editedAt: actionTimestamp, 
+                editedBy: session.userId
             });
         } else if (updates.assignedTo) {
             await createLog({
@@ -222,6 +235,20 @@ export async function PUT(request, { params }) {
                 assignedTo: updates.assignedTo, 
                 replyTo: 'N/A', 
                 attachments: incomingAttachments
+            });
+        } else {
+            // --- NEW: Logging edited fields for the starting post ---
+            await createLog({
+                userId: session.userId,
+                actionType: 'TICKET_EDITED',
+                ticketStatus: existingTicket.status,
+                details: `${session.userId} has edited starting post in message ${ticketid}`,
+                priorityLevel: 'info',
+                assignedTo: currentAssignedManager,
+                replyTo: 'N/A', 
+                attachments: incomingAttachments,
+                // Only pass the edit fields if the body or subject was actually changed
+                ...(updates.body || updates.subject ? { editedAt: actionTimestamp, editedBy: session.userId } : {})
             });
         }
 

@@ -11,13 +11,14 @@ export async function createLog({
     status,         
     priorityLevel,  
     priority,
-    // Safely default new fields so old calls don't crash
     assignedTo = 'N/A', 
     replyTo = 'N/A',    
-    attachments = []    
+    attachments = [],
+    // --- NEW FIELDS ---
+    editedAt = null,
+    editedBy = null
 }) {
     try {
-        // Map old variables to new ones if needed
         const finalEventType = eventType || actionType;
         const finalStatus = status || ticketStatus || 'NA';
         const rawPriority = priority || priorityLevel || 'INFO';
@@ -26,23 +27,25 @@ export async function createLog({
         const client = await clientPromise;
         const db = client.db('TicketingSystem');
         
-        // Clean the ID string
         const stringUserId = userId ? String(userId).trim() : '';
         let displayUser = stringUserId || 'System/Unauthenticated';
+        let displayEditor = editedBy ? String(editedBy).trim() : null; 
         
         if (stringUserId.length === 24) {
             try {
-                // Database lookup to swap ID for Username
                 const userDoc = await db.collection('users').findOne({ _id: new ObjectId(stringUserId) });
                 if (userDoc && userDoc.username) {
                     displayUser = userDoc.username; 
+                    // Swap the editor ID for the username if they are the same person making the edit
+                    if (displayEditor === stringUserId) {
+                        displayEditor = userDoc.username;
+                    }
                 }
             } catch (err) {
                 console.error(`[LOGGER CRASH] The database lookup crashed:`, err.message);
             }
         } 
 
-        // Replace raw IDs in the details text with the human-readable username
         const finalDetails = details ? details.replace(new RegExp(stringUserId, 'g'), displayUser) : '';
 
         const logEntry = {
@@ -55,7 +58,10 @@ export async function createLog({
             priority: finalPriority,
             assignedTo: assignedTo,
             replyTo: replyTo,
-            attachments: attachments
+            attachments: attachments,
+            // --- LOGGING THE NEW FIELDS ---
+            editedAt: editedAt,
+            editedBy: displayEditor
         };
 
         await db.collection('logs').insertOne(logEntry);
