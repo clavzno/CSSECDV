@@ -18,12 +18,13 @@ import {
 export default function TicketView({ ticketId, role, ticket, currentUserId }) {
   const router = useRouter();
   
-  // --- NEW: Force clean the ID to strip out all # symbols
   const cleanId = String(ticket?.id ?? ticketId ?? "").replace(/#/g, "");
   
   const normalizedRole = role?.toLowerCase();
   const isManager = normalizedRole === "manager";
   const isAdmin = normalizedRole === "admin";
+  const isStaff = isManager || isAdmin; 
+  // --- REVERTED: Strictly managers only ---
   const canModifyTicket = isManager;
 
   const activeTicket = ticket ?? {
@@ -208,12 +209,11 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
   const actionBoxBaseClass =
     "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors min-h-[44px]";
 
-  // --- NEW: Forced hardcoded mask for the sidebar
   const assignedLabel =
     assignmentState === "me"
       ? "You"
       : assignmentState === "other"
-        ? "Customer Support"
+        ? (activeTicket.assignedToName || normalizedAssignedTo) 
         : "None";
 
   return (
@@ -222,7 +222,6 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-              {/* Render strictly cleanId with a single # */}
               <p className="mb-2 text-sm font-medium text-zinc-500">Ticket #{cleanId}</p>
               <h1 className="mb-2 text-3xl font-bold text-zinc-800">
                 &quot;{activeTicket.subject}&quot;
@@ -282,7 +281,8 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
                         )}
                       </div>
 
-                      {(isAdmin || (canModifyTicket && reply.authorId === currentUserId)) && (
+                      {/* REVERTED: Removed the isAdmin bypass so only the author can modify */}
+                      {(canModifyTicket && reply.authorId === currentUserId) && (
                         <div className="relative">
                           <button
                             onClick={() =>

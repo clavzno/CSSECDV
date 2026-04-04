@@ -5,7 +5,7 @@ import CustomerTicketView from '@/components/ViewTicket';
 import { getCurrentSession } from '@/lib/rbac';
 import { redirect } from 'next/navigation';
 import clientPromise from '@/lib/mongodb';
-import { ObjectId } from 'mongodb'; // <-- NEW IMPORT REQUIRED
+import { ObjectId } from 'mongodb'; 
 
 type ViewTicketPageProps = {
     params: Promise<{
@@ -16,7 +16,7 @@ type ViewTicketPageProps = {
 type TicketReplyView = {
     id: string;
     author: string;
-    authorId: string; // <-- ADD THIS
+    authorId: string; 
     date: string;
     content: string;
     attachment: string | null;
@@ -31,6 +31,7 @@ type TicketViewData = {
     description: string;
     status: string;
     assignedTo: string;
+    assignedToName?: string;
     author: string;
     createdAt: string;
     attachment: string | null;
@@ -82,7 +83,7 @@ function mapReply(reply: any): TicketReplyView {
     return {
         id: String(reply?.replyId ?? ''),
         author: String(reply?.senderId ?? ''),
-        authorId: String(reply?.senderId ?? ''), // <-- ADD THIS
+        authorId: String(reply?.senderId ?? ''), 
         date: formatDate(reply?.timestamp),
         content: String(reply?.message ?? ''),
         attachment:
@@ -105,6 +106,7 @@ function mapTicketForView(ticket: any): TicketViewData {
         author: String(ticket?.createdBy ?? ''),
         createdAt: formatDate(ticket?.createdAt),
         assignedTo: String(ticket?.assignedTo ?? 'unassigned'),
+        assignedToName: String(ticket?.assignedTo ?? 'unassigned'),
         attachment:
             Array.isArray(ticket?.attachments) && ticket?.attachments.length > 0
                 ? String(ticket.attachments[0])
@@ -114,7 +116,7 @@ function mapTicketForView(ticket: any): TicketViewData {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function resolveUserLabels(db: any, ticketData: TicketViewData): Promise<TicketViewData> {
+async function resolveUserLabels(db: any, ticketData: TicketViewData, viewerRole: string): Promise<TicketViewData> {
     const rawIds = [
         ticketData.author,
         ticketData.assignedTo !== 'unassigned' ? ticketData.assignedTo : '',
@@ -129,7 +131,6 @@ async function resolveUserLabels(db: any, ticketData: TicketViewData): Promise<T
 
     const uniqueIds = [...new Set(rawIds)];
     
-    // --- NEW: Convert valid 24-character strings into real MongoDB ObjectIds ---
     const objectIds = uniqueIds
         .filter((id) => /^[0-9a-fA-F]{24}$/.test(id))
         .map((id) => new ObjectId(id));
@@ -139,7 +140,7 @@ async function resolveUserLabels(db: any, ticketData: TicketViewData): Promise<T
         .find(
             {
                 $or: [
-                    { _id: { $in: objectIds } }, // Search by ObjectId
+                    { _id: { $in: objectIds } }, 
                     { userId: { $in: uniqueIds } },
                     { username: { $in: uniqueIds } },
                 ],
@@ -149,7 +150,7 @@ async function resolveUserLabels(db: any, ticketData: TicketViewData): Promise<T
                     _id: 1,
                     username: 1,
                     userId: 1,
-                    role: 1, // Need role to apply [Customer Support] mask
+                    role: 1, 
                 },
             }
         )
@@ -176,22 +177,21 @@ async function resolveUserLabels(db: any, ticketData: TicketViewData): Promise<T
         }
     }
 
-    // --- NEW: Mask formatting helper ---
     const formatName = (id: string) => {
         const resolvedName = labelMap.get(id) ?? id;
-        const role = roleMap.get(id);
-        // If they are staff, permanently mask their name in the UI
-        if (role === 'manager' || role === 'admin') {
+        const targetRole = roleMap.get(id);
+        // CONDITIONAL MASK: Only hide the name if a Customer is viewing the page
+        if (viewerRole === 'customer' && (targetRole === 'manager' || targetRole === 'admin')) {
             return 'Customer Support';
         }
-        // Otherwise, show their resolved username
         return resolvedName;
     };
 
     return {
         ...ticketData,
         author: formatName(ticketData.author),
-        assignedTo: ticketData.assignedTo, // Keep raw ID here so frontend UI state logic still works
+        assignedTo: ticketData.assignedTo, 
+        assignedToName: formatName(ticketData.assignedTo),
         replies: ticketData.replies.map((reply) => ({
             ...reply,
             author: formatName(reply.author),
@@ -275,7 +275,8 @@ export default async function ViewTicketPage({ params }: ViewTicketPageProps) {
     }
 
     const mappedTicket = mapTicketForView(ticket);
-    const resolvedTicket = await resolveUserLabels(db, mappedTicket);
+    // PASSING THE ROLE TO THE RESOLVER HERE:
+    const resolvedTicket = await resolveUserLabels(db, mappedTicket, role);
 
     if (role === 'customer') {
         return (
