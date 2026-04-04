@@ -42,24 +42,29 @@ async function getTicketsForRole(role, session) {
   const db = client.db('TicketingSystem');
   const ticketsCollection = db.collection('tickets');
 
-  const userId = session?.userId ? String(session.userId) : null;
+  const userIdRaw = session?.userId ?? null;
+  const userId = userIdRaw ? String(userIdRaw) : null;
   const username = session?.username ? String(session.username) : null;
 
   let query = {};
 
   if (role === 'manager') {
-    const assignedManagerMatches = [];
+    const assignedManagerMatches = [
+      { assignedTo: null },
+      { assignedTo: 'N/A' },
+      { assignedTo: 'unassigned' },
+      { assignedTo: '' },
+      { assignedTo: { $exists: false } },
+    ];
 
     if (userId) assignedManagerMatches.push({ assignedTo: userId });
     if (username) assignedManagerMatches.push({ assignedTo: username });
 
-    query =
-      assignedManagerMatches.length > 0
-        ? { $or: assignedManagerMatches }
-        : { assignedTo: null };
+    query = { $or: assignedManagerMatches };
   } else if (role === 'customer') {
     const createdByMatches = [];
 
+    if (userIdRaw) createdByMatches.push({ createdBy: userIdRaw });
     if (userId) createdByMatches.push({ createdBy: userId });
     if (username) createdByMatches.push({ createdBy: username });
 

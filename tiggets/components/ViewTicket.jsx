@@ -1,32 +1,9 @@
 // for customer
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Download, Edit, MoreHorizontal, Trash2, Upload, X } from 'lucide-react';
-
-// Mock data - will be replaced with API calls
-const mockTicketData = {
-    id: '0142069',
-    title: "HELP I CAN'T DO THIS ANYMORE",
-    typeOfInquiry: 'Application for Leave of Absence (LOA)',
-    status: 'Processing',
-    description:
-        'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
-    author: 'Angelica Therese | Clavano',
-    createdAt: 'March 29, 2026 11:16PM',
-    attachment: 'PretendThisIsADownloadIcon.pdf',
-    replies: [
-        {
-            id: 1,
-            author: 'Olajide Olayinka Williams Olatunji',
-            content:
-                'Aye bruh ion think I can handle this. Imma close this ticket gng.',
-            createdAt: 'March 30, 2026 12:42AM',
-            editedAt: 'March 31, 2026 2:00PM',
-            isAuthorReply: false,
-        },
-    ],
-};
 
 const statusClasses = {
     Processing: 'bg-cyan-200 text-cyan-900 border-cyan-300',
@@ -239,14 +216,29 @@ function Reply({ reply, isCurrentUserAuthor, canManageReplies, onEdit, onDelete 
 
 function ReplyComposer({ onSubmit, isDisabled }) {
     const [replyContent, setReplyContent] = useState('');
-    const [attachment, setAttachment] = useState(null);
+    const [attachments, setAttachments] = useState([]);
+    const fileInputRef = useRef(null);
 
     const handleSubmit = () => {
         if (replyContent.trim()) {
-            onSubmit(replyContent, attachment);
+            onSubmit(replyContent, attachments);
             setReplyContent('');
-            setAttachment(null);
+            setAttachments([]);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
         }
+    };
+
+    const handleFilesSelected = (event) => {
+        const files = Array.from(event.target.files || []);
+        if (files.length === 0) return;
+        setAttachments((prev) => [...prev, ...files.map((file) => file.name)]);
+        event.target.value = '';
+    };
+
+    const removeAttachment = (indexToRemove) => {
+        setAttachments((prev) => prev.filter((_, index) => index !== indexToRemove));
     };
 
     return (
@@ -262,24 +254,32 @@ function ReplyComposer({ onSubmit, isDisabled }) {
 
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        onChange={handleFilesSelected}
+                        className="hidden"
+                    />
                     <button
                         disabled={isDisabled}
+                        onClick={() => fileInputRef.current?.click()}
                         className="flex items-center gap-2 px-4 py-2 text-zinc-600 border border-zinc-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
                     >
                         <Upload className="h-4 w-4" />
                         Click to upload file...
                     </button>
-                    {attachment && (
-                        <div className="flex items-center gap-2 text-sm text-zinc-600 bg-gray-100 px-3 py-1 rounded">
-                            {attachment}
+                    {attachments.map((attachmentName, index) => (
+                        <div key={`${attachmentName}-${index}`} className="flex items-center gap-2 text-sm text-zinc-600 bg-gray-100 px-3 py-1 rounded">
+                            {attachmentName}
                             <button
-                                onClick={() => setAttachment(null)}
+                                onClick={() => removeAttachment(index)}
                                 className="hover:text-red-600"
                             >
                                 <X className="h-3 w-3" />
                             </button>
                         </div>
-                    )}
+                    ))}
                 </div>
 
                 <button
@@ -294,19 +294,70 @@ function ReplyComposer({ onSubmit, isDisabled }) {
     );
 }
 
-export default function ViewTicket({ ticketId }) {
-    const [ticket, setTicket] = useState({
-        ...mockTicketData,
-        id: ticketId || mockTicketData.id,
-    });
-    const [replies, setReplies] = useState(mockTicketData.replies);
+export default function ViewTicket({ ticketId, ticket: ticketData, currentUserId }) {
+    const router = useRouter();
+
+    const normalizeTicketForCustomerView = (sourceTicket) => {
+        const baseTicket = sourceTicket ?? {};
+
+        return {
+            id: String(baseTicket.id ?? ticketId ?? ''),
+            title: String(baseTicket.subject ?? baseTicket.title ?? ''),
+            typeOfInquiry: String(baseTicket.type ?? baseTicket.typeOfInquiry ?? ''),
+            status: String(baseTicket.status ?? 'Open'),
+            description: String(baseTicket.description ?? baseTicket.body ?? ''),
+            author: String(baseTicket.author ?? ''),
+            createdAt: String(baseTicket.createdAt ?? ''),
+            attachment: baseTicket.attachment ?? null,
+            replies: Array.isArray(baseTicket.replies)
+                ? baseTicket.replies.map((reply) => {
+                    const replyAuthorId = String(reply.authorId ?? '');
+                    const replyAttachments = Array.isArray(reply.attachments)
+                        ? reply.attachments.map((item) => String(item))
+                        : [];
+
+                    return {
+                        id: String(reply.id ?? ''),
+                        author: String(reply.author ?? ''),
+                        content: String(reply.content ?? ''),
+                        createdAt: String(reply.date ?? reply.createdAt ?? ''),
+                        editedAt: reply.isEdited
+                            ? String(reply.editDate ?? reply.editedAt ?? '')
+                            : null,
+                        attachment: reply.attachment ?? (replyAttachments[0] ?? null),
+                        attachments: replyAttachments,
+                        isAuthorReply:
+                            replyAuthorId.length > 0 &&
+                            replyAuthorId === String(currentUserId ?? ''),
+                    };
+                })
+                : [],
+        };
+    };
+
+    const initialTicket = normalizeTicketForCustomerView(ticketData);
+
+    const [ticket, setTicket] = useState(initialTicket);
+    const [replies, setReplies] = useState(initialTicket.replies);
     const [isEditingBody, setIsEditingBody] = useState(false);
-    const [editedBody, setEditedBody] = useState(mockTicketData.description);
+    const [editedBody, setEditedBody] = useState(initialTicket.description);
+    const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState('');
+
+    const cleanId = String(ticket.id ?? ticketId ?? '').replace(/^#/, '');
+    const ticketApiPath = `/api/tickets/%23${encodeURIComponent(cleanId)}`;
 
     const canEditBody = ticket.status === 'Open';
     const canManageReplies = ticket.status !== 'Resolved';
 
-    const handleMarkSolved = () => {
+    useEffect(() => {
+        const nextTicket = normalizeTicketForCustomerView(ticketData);
+        setTicket(nextTicket);
+        setReplies(nextTicket.replies);
+        setEditedBody(nextTicket.description);
+    }, [ticketData]);
+
+    const handleMarkSolved = async () => {
         const hasConfirmed = window.confirm(
             'Mark this ticket as resolved? You can no longer edit the body or reply after resolving it.'
         );
@@ -315,11 +366,29 @@ export default function ViewTicket({ ticketId }) {
             return;
         }
 
-        setTicket((prev) => ({
-            ...prev,
-            status: 'Resolved',
-        }));
-        setIsEditingBody(false);
+        setIsSaving(true);
+        setError('');
+
+        try {
+            const res = await fetch(ticketApiPath, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'Resolved' }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to mark ticket as resolved.');
+            }
+
+            setTicket((prev) => ({ ...prev, status: 'Resolved' }));
+            setIsEditingBody(false);
+            router.refresh();
+        } catch (err) {
+            setError(err.message || 'Failed to mark ticket as resolved.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleStartEditBody = () => {
@@ -335,60 +404,162 @@ export default function ViewTicket({ ticketId }) {
         setIsEditingBody(false);
     };
 
-    const handleSaveEditBody = () => {
+    const handleSaveEditBody = async () => {
         const nextBody = editedBody.trim();
         if (!nextBody) {
             return;
         }
 
-        setTicket((prev) => ({
-            ...prev,
-            description: nextBody,
-        }));
-        setIsEditingBody(false);
+        setIsSaving(true);
+        setError('');
+
+        try {
+            const res = await fetch(ticketApiPath, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ body: nextBody }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to update ticket body.');
+            }
+
+            setTicket((prev) => ({
+                ...prev,
+                description: nextBody,
+            }));
+            setIsEditingBody(false);
+            router.refresh();
+        } catch (err) {
+            setError(err.message || 'Failed to update ticket body.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    const handleAddReply = (content, attachment) => {
+    const handleAddReply = async (content, attachments) => {
         if (!canManageReplies) {
             return;
         }
 
-        const newReply = {
-            id: Math.max(...replies.map((r) => r.id), 0) + 1,
-            author: 'Current User',
-            content,
-            attachment,
-            createdAt: new Date().toLocaleString(),
-            editedAt: null,
-            isAuthorReply: true,
-        };
-        setReplies((prev) => [...prev, newReply]);
+        setIsSaving(true);
+        setError('');
+
+        try {
+            const res = await fetch(ticketApiPath, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    newMessage: content,
+                    attachments: Array.isArray(attachments) ? attachments : [],
+                }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to add reply.');
+            }
+
+            const returnedReply = data.reply;
+            const replyAttachments = Array.isArray(returnedReply?.attachments)
+                ? returnedReply.attachments.map((item) => String(item))
+                : [];
+
+            const newReply = {
+                id: String(returnedReply?.replyId ?? Date.now()),
+                author: 'You',
+                content: String(returnedReply?.message ?? content),
+                attachment: replyAttachments[0] ?? null,
+                attachments: replyAttachments,
+                createdAt: returnedReply?.timestamp
+                    ? new Date(returnedReply.timestamp).toLocaleString()
+                    : new Date().toLocaleString(),
+                editedAt: null,
+                isAuthorReply: true,
+            };
+
+            setReplies((prev) => [...prev, newReply]);
+            router.refresh();
+        } catch (err) {
+            setError(err.message || 'Failed to add reply.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    const handleEditReply = (replyId, newContent) => {
+    const handleEditReply = async (replyId, newContent) => {
         if (!canManageReplies) {
             return;
         }
 
-        setReplies((prev) =>
-            prev.map((reply) =>
-                reply.id === replyId
-                    ? { ...reply, content: newContent, editedAt: new Date().toLocaleString() }
-                    : reply
-            )
-        );
+        setIsSaving(true);
+        setError('');
+
+        try {
+            const res = await fetch(ticketApiPath, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ replyId, message: newContent }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to edit reply.');
+            }
+
+            setReplies((prev) =>
+                prev.map((reply) =>
+                    reply.id === replyId
+                        ? { ...reply, content: newContent, editedAt: new Date().toLocaleString() }
+                        : reply
+                )
+            );
+            router.refresh();
+        } catch (err) {
+            setError(err.message || 'Failed to edit reply.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    const handleDeleteReply = (replyId) => {
+    const handleDeleteReply = async (replyId) => {
         if (!canManageReplies) {
             return;
         }
 
-        setReplies((prev) => prev.filter((reply) => reply.id !== replyId));
+        setIsSaving(true);
+        setError('');
+
+        try {
+            const res = await fetch(ticketApiPath, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deleteReplyId: replyId }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to delete reply.');
+            }
+
+            setReplies((prev) => prev.filter((reply) => reply.id !== replyId));
+            router.refresh();
+        } catch (err) {
+            setError(err.message || 'Failed to delete reply.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
         <main className="space-y-6">
+            {error && (
+                <div className="rounded bg-red-100 px-4 py-3 text-sm font-medium text-red-700">
+                    {error}
+                </div>
+            )}
+
             <TicketDescription
                 ticket={ticket}
                 onMarkSolved={handleMarkSolved}
@@ -422,7 +593,7 @@ export default function ViewTicket({ ticketId }) {
 
             <div className="border-t border-zinc-200 pt-6">
                 <h2 className="text-xl font-bold text-zinc-800 mb-4">Add Reply</h2>
-                <ReplyComposer onSubmit={handleAddReply} isDisabled={!canManageReplies} />
+                <ReplyComposer onSubmit={handleAddReply} isDisabled={!canManageReplies || isSaving} />
             </div>
         </main>
     );

@@ -1,6 +1,7 @@
 // this page fetches tickets and passes them into Admin/ManagerTickets views
 import { redirect } from 'next/navigation';
 import ManagerAdminTickets from '@/components/ManagerAdminTickets';
+import CreateTicket from '@/components/CreateTicket';
 import { getCurrentSession } from '@/lib/rbac';
 import clientPromise from '@/lib/mongodb';
 
@@ -90,14 +91,16 @@ async function getTicketsForRole(
   let query = {};
 
   if (role === 'manager') {
-    query =
-      identityValues.length > 0
-        ? {
-            $or: identityValues.map((value) => ({
-              assignedTo: value,
-            })),
-          }
-        : { assignedTo: null };
+    query = {
+      $or: [
+        ...identityValues.map((value) => ({ assignedTo: value })),
+        { assignedTo: null },
+        { assignedTo: 'N/A' },
+        { assignedTo: 'unassigned' },
+        { assignedTo: '' },
+        { assignedTo: { $exists: false } },
+      ],
+    };
   }
 
   const tickets = await ticketsCollection
@@ -117,9 +120,20 @@ export default async function TicketsPage() {
 
   const safeSession = toSafeSession(session);
   const role = safeSession.role?.toLowerCase();
+
+  if (role === 'customer') {
+    return (
+      <div className="flex h-screen bg-background font-text text-foreground">
+        <main className="ml-56 flex-1 overflow-y-auto p-8">
+          <CreateTicket />
+        </main>
+      </div>
+    );
+  }
+
   const tickets = await getTicketsForRole(role, safeSession);
 
-  // if they are a customer, they can't view it
+  // only admins and managers can view this table page
   if (role !== 'admin' && role !== 'manager') {
     return (
       <div className="flex h-screen bg-background font-text text-foreground">

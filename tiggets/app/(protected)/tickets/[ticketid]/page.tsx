@@ -1,6 +1,7 @@
 // specific ticket page
 // this is the server page which will fetch data
 import TicketView from '@/components/TicketView';
+import CustomerTicketView from '@/components/ViewTicket';
 import { getCurrentSession } from '@/lib/rbac';
 import { redirect } from 'next/navigation';
 import clientPromise from '@/lib/mongodb';
@@ -38,6 +39,7 @@ type TicketViewData = {
 
 type SafeSession = {
     userId: string;
+    rawUserId: unknown;
     username: string;
     role: string;
 };
@@ -46,6 +48,7 @@ type SafeSession = {
 function toSafeSession(session: any): SafeSession {
     return {
         userId: String(session?.userId ?? ''),
+        rawUserId: session?.userId ?? null,
         username: String(session?.username ?? ''),
         role: String(session?.role ?? ''),
     };
@@ -208,10 +211,6 @@ export default async function ViewTicketPage({ params }: ViewTicketPageProps) {
     const resolvedParams = await params;
     const currentTicketId = String(resolvedParams.ticketid ?? '').replace('#', '');
 
-    if (role !== 'admin' && role !== 'manager') {
-        redirect('/');
-    }
-
     const client = await clientPromise;
     const db = client.db('TicketingSystem');
 
@@ -226,17 +225,40 @@ export default async function ViewTicketPage({ params }: ViewTicketPageProps) {
 
     const managerAccessQuery = {
         $or: [
+            { assignedTo: safeSession.rawUserId },
             { assignedTo: safeSession.userId },
             { assignedTo: safeSession.username },
+            { assignedTo: null },
+            { assignedTo: 'N/A' },
+            { assignedTo: 'unassigned' },
+            { assignedTo: '' },
+            { assignedTo: { $exists: false } },
         ],
     };
 
-    const accessQuery =
-        role === 'admin'
-            ? ticketIdQuery
-            : {
-                $and: [ticketIdQuery, managerAccessQuery],
-            };
+    const customerAccessQuery = {
+        $or: [
+            { createdBy: safeSession.rawUserId },
+            { createdBy: safeSession.userId },
+            { createdBy: safeSession.username },
+        ],
+    };
+
+    let accessQuery;
+
+    if (role === 'admin') {
+        accessQuery = ticketIdQuery;
+    } else if (role === 'manager') {
+        accessQuery = {
+            $and: [ticketIdQuery, managerAccessQuery],
+        };
+    } else if (role === 'customer') {
+        accessQuery = {
+            $and: [ticketIdQuery, customerAccessQuery],
+        };
+    } else {
+        redirect('/');
+    }
 
     const ticket = await db.collection('tickets').findOne(accessQuery, {
         projection: {
@@ -254,6 +276,18 @@ export default async function ViewTicketPage({ params }: ViewTicketPageProps) {
 
     const mappedTicket = mapTicketForView(ticket);
     const resolvedTicket = await resolveUserLabels(db, mappedTicket);
+
+    if (role === 'customer') {
+        return (
+            <main className="ml-56 min-h-screen bg-background p-6">
+                <CustomerTicketView
+                    ticketId={currentTicketId}
+                    ticket={resolvedTicket}
+                    currentUserId={safeSession.userId}
+                />
+            </main>
+        );
+    }
 
     return (
         <main className="ml-56 min-h-screen bg-background p-6">

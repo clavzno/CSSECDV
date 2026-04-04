@@ -1,35 +1,6 @@
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 
-// customer dummy data for now, will be fetched from backend later
-
-const customerTickets = [
-    {
-        id: '#0142069',
-        title: "HELP I CAN'T DO THIS ANYMORE",
-        status: 'Processing',
-        updatedAt: 'August 6, 2020',
-    },
-    {
-        id: '#0142068',
-        title: "It's over...",
-        status: 'Open',
-        updatedAt: 'August 7, 2020',
-    },
-    {
-        id: '#0142070',
-        title: 'Excused Absence Forms.',
-        status: 'Pending',
-        updatedAt: 'August 5, 2020',
-    },
-    {
-        id: '#0142067',
-        title: 'Pls help. I want to know where I can...',
-        status: 'Resolved',
-        updatedAt: 'August 8, 2020',
-    },
-];
-
 const statusClasses = {
     Processing: 'bg-cyan-200 text-cyan-900 border-cyan-300',
     Open: 'bg-rose-300 text-rose-900 border-rose-400',
@@ -38,50 +9,66 @@ const statusClasses = {
 };
 
 function TicketCard({ ticket }) {
-    const ticketPath = `/tickets/${encodeURIComponent(ticket.id.replace('#', ''))}`;
+    const rawId = String(ticket.ticketid ?? ticket.ticketId ?? ticket.id ?? ticket._id ?? '');
+    const cleanId = rawId.replace(/^#/, '');
+    const ticketPath = `/tickets/${encodeURIComponent(cleanId)}`;
+    const title = String(ticket.subject ?? ticket.title ?? ticket.body ?? 'Untitled ticket');
+    const status = String(ticket.status ?? 'Open');
+    const lastUpdated = ticket.updatedAt ?? ticket.lastUpdate ?? ticket.createdAt ?? '';
+    const updatedAt = lastUpdated ? new Date(lastUpdated).toLocaleDateString() : '';
 
     return (
         <Link
             href={ticketPath}
-            aria-label={`View ticket ${ticket.id}`}
+            aria-label={`View ticket ${rawId}`}
             className="relative flex h-52 min-w-0 flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-blue-500 hover:ring-1 hover:ring-blue-500/60"
         >
             <span
                 className={`absolute right-4 top-3 rounded-full border px-4 py-1 text-xs font-medium ${
-                    statusClasses[ticket.status] ?? 'bg-zinc-200 text-zinc-800 border-zinc-300'
+                    statusClasses[status] ?? 'bg-zinc-200 text-zinc-800 border-zinc-300'
                 }`}
             >
-                {ticket.status}
+                {status}
             </span>
 
             <h2 className="mt-7 max-w-[90%] text-xl leading-tight font-medium text-zinc-800 sm:text-2xl">
-                {ticket.title}
+                {title}
             </h2>
 
             <div className="mt-auto flex items-end justify-between gap-4 pt-6 text-zinc-800">
                 <div>
                     <p className="text-[1.25rem] font-bold leading-none sm:text-[1.45rem]">Ticket ID</p>
-                    <p className="text-lg leading-none sm:text-xl">{ticket.id}</p>
+                    <p className="text-lg leading-none sm:text-xl">{rawId}</p>
                 </div>
 
                 <div className="text-right">
                     <p className="text-sm font-bold leading-tight sm:text-base">Last Updated</p>
-                    <p className="text-sm leading-tight sm:text-base">{ticket.updatedAt}</p>
+                    <p className="text-sm leading-tight sm:text-base">{updatedAt}</p>
                 </div>
             </div>
         </Link>
     );
 }
 
-export default function CustomerDashboard() {
+export default function CustomerDashboard({ tickets = [] }) {
     return (
         <section className="relative min-h-[calc(100vh-3rem)]">
             <h1 className="mb-8 text-3xl font-bold text-zinc-800">My Tickets</h1>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {customerTickets.map((ticket) => (
-                    <TicketCard key={ticket.id} ticket={ticket} />
-                ))}
+                {tickets.length === 0 ? (
+                    <div className="col-span-full rounded-xl border border-dashed border-zinc-300 bg-white/70 p-8 text-center text-zinc-600">
+                        No tickets found.
+                    </div>
+                ) : (
+                    tickets.map((ticket) => {
+                        const key = String(
+                            ticket.ticketid ?? ticket.ticketId ?? ticket.id ?? ticket._id ?? ''
+                        );
+
+                        return <TicketCard key={key} ticket={ticket} />;
+                    })
+                )}
             </div>
 
             <Link

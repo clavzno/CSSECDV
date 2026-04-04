@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -64,6 +64,8 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
 
   const [activeMessageMenu, setActiveMessageMenu] = useState(null);
   const [replyText, setReplyText] = useState("");
+  const [replyAttachments, setReplyAttachments] = useState([]);
+  const replyFileInputRef = useRef(null);
 
   const getStatusColors = (currentStatus) => {
     switch (currentStatus) {
@@ -127,16 +129,37 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
       const res = await fetch(`/api/tickets/%23${encodeURIComponent(cleanId)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newMessage: replyText }),
+        body: JSON.stringify({
+          newMessage: replyText,
+          attachments: replyAttachments,
+        }),
       });
 
       if (res.ok) {
         setReplyText("");
+        setReplyAttachments([]);
+        if (replyFileInputRef.current) {
+          replyFileInputRef.current.value = "";
+        }
         router.refresh(); 
       }
     } catch (error) {
       console.error("Failed to post reply:", error);
     }
+  };
+
+  const handleReplyFilesSelected = (event) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    setReplyAttachments((prev) => [...prev, ...files.map((file) => file.name)]);
+    event.target.value = "";
+  };
+
+  const removeReplyAttachment = (indexToRemove) => {
+    setReplyAttachments((prev) =>
+      prev.filter((_, index) => index !== indexToRemove)
+    );
   };
 
   const handleDeleteReply = async (replyId) => {
@@ -321,12 +344,42 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
               />
 
               <div className="flex items-center justify-between">
-                <button className="flex items-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-zinc-600 transition hover:bg-gray-50">
-                  <Upload className="h-4 w-4" />
-                  Click to upload file...
-                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={replyFileInputRef}
+                    type="file"
+                    multiple
+                    onChange={handleReplyFilesSelected}
+                    className="hidden"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => replyFileInputRef.current?.click()}
+                    className="flex items-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-zinc-600 transition hover:bg-gray-50"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Click to upload file...
+                  </button>
+
+                  {replyAttachments.map((attachmentName, index) => (
+                    <div
+                      key={`${attachmentName}-${index}`}
+                      className="flex items-center gap-2 rounded bg-gray-100 px-3 py-1 text-xs text-zinc-600"
+                    >
+                      {attachmentName}
+                      <button
+                        type="button"
+                        onClick={() => removeReplyAttachment(index)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
 
                 <button
+                  type="button"
                   onClick={handlePostReply}
                   disabled={!replyText.trim()}
                   className="rounded-lg bg-tiggets-lightgreen px-6 py-2 font-medium text-white transition hover:bg-[#2b4a3c] disabled:cursor-not-allowed disabled:opacity-50"
