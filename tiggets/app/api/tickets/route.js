@@ -51,7 +51,7 @@ export async function POST(request) {
             subject,
             type,
             body,
-            status: 'OPEN', 
+            status: 'Open', 
             createdBy: session.userId,
             createdAt: new Date(),
             updatedAt: new Date(),
