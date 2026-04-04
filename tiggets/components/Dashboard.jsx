@@ -30,6 +30,7 @@ async function mapTicket(ticket) {
     assignedManagerId: ticket?.assignedManagerId
       ? String(ticket.assignedManagerId)
       : 'N/A',
+    lastAccessedAt: ticket?.lastAccessedAt ? new Date(ticket.lastAccessedAt).toISOString() : null,
     attachments: Array.isArray(ticket?.attachments) ? ticket.attachments : [],
     replies: Array.isArray(ticket?.replies)
       ? await Promise.all(ticket.replies.map(mapReply))
@@ -76,7 +77,7 @@ async function getTicketsForRole(role, session) {
 
   const tickets = await ticketsCollection
     .find(query)
-    .sort({ createdAt: -1 })
+    .sort({ lastAccessedAt: -1, createdAt: -1 })
     .toArray();
 
   return Promise.all(tickets.map(mapTicket));

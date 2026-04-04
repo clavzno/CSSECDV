@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -19,6 +19,14 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
   const router = useRouter();
   
   const cleanId = String(ticket?.id ?? ticketId ?? "").replace(/#/g, "");
+
+  useEffect(() => {
+    fetch(`/api/tickets/%23${encodeURIComponent(cleanId)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lastAccessedAt: new Date().toISOString() }),
+    }).catch(err => console.error("Failed to update last viewed time", err));
+  }, [cleanId]);
   
   const normalizedRole = role?.toLowerCase();
   const isManager = normalizedRole === "manager";

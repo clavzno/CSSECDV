@@ -60,6 +60,7 @@ function mapTicket(ticket: any): Ticket {
     assignedTo: ticket?.assignedTo
       ? String(ticket.assignedTo)
       : 'N/A',
+    lastAccessedAt: ticket?.lastAccessedAt ? new Date(ticket.lastAccessedAt).toISOString() : null,
     attachments: Array.isArray(ticket?.attachments) ? ticket.attachments : [],
     replies: Array.isArray(ticket?.replies) ? ticket.replies.map(mapReply) : [],
   };
@@ -105,7 +106,7 @@ async function getTicketsForRole(
 
   const tickets = await ticketsCollection
     .find(query)
-    .sort({ createdAt: -1 })
+    .sort({ lastAccessedAt: -1, createdAt: -1 })
     .toArray();
 
   return tickets.map(mapTicket);

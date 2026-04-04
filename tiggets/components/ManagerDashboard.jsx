@@ -80,7 +80,9 @@ export default function ManagerDashboard({ role, tickets }) {
                         {ticket.subject || 'Untitled Ticket'}
                       </span>
                       <span className="text-xs text-zinc-500">
-                        {ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : 'Just now'}
+                        {ticket.lastAccessedAt 
+                          ? `Viewed ${new Date(ticket.lastAccessedAt).toLocaleDateString()}` 
+                          : (ticket.createdAt ? `Created ${new Date(ticket.createdAt).toLocaleDateString()}` : 'Just now')}
                       </span>
                     </div>
                     <span className="text-xs font-semibold px-2 py-1 rounded-full bg-zinc-100 text-zinc-600 whitespace-nowrap">
