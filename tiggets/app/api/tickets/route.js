@@ -59,7 +59,9 @@ export async function POST(request) {
             // --- MOVED: Now appears before the arrays ---
             assignedTo: null, // assignedManagerId 
             attachments: attachments,
-            replies: [] 
+            replies: [],
+            editedAt: null, 
+            editedBy: null
         };
         
         await db.collection('tickets').insertOne(newTicket);

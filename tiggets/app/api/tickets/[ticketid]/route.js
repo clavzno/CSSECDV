@@ -64,12 +64,10 @@ export async function PUT(request, { params }) {
         // ==========================================
         if (updates.assignedManagerId) {
             try {
-                // Look up the target user to verify their role
                 const targetUser = await db.collection('users').findOne({ 
                     _id: new ObjectId(updates.assignedManagerId) 
                 });
 
-                // Fail if user doesn't exist or isn't a manager/admin
                 if (!targetUser || (targetUser.role !== 'manager' && targetUser.role !== 'admin')) {
                     await createLog({
                         userId: session.userId,
@@ -83,8 +81,6 @@ export async function PUT(request, { params }) {
                     });
                     return NextResponse.json({ error: 'Target user lacks manager permissions' }, { status: 403 });
                 }
-                // do not remove this
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (err) {
                 return NextResponse.json({ error: 'Invalid Manager ID format' }, { status: 400 });
             }
@@ -101,6 +97,9 @@ export async function PUT(request, { params }) {
                 senderId: session.userId,
                 message: updates.newMessage,
                 timestamp: new Date(),
+                // --- NEW FIELDS ADDED HERE ---
+                editedAt: null,
+                editedBy: null,
                 attachments: incomingAttachments 
             };
 
@@ -129,10 +128,26 @@ export async function PUT(request, { params }) {
         // ==========================================
         // ✏️ EXISTING: EDITING, STATUS, OR ASSIGNMENT
         // ==========================================
-        await db.collection('tickets').updateOne(
-            { ticketid },
-            { $set: { ...updates, updatedAt: new Date() } }
-        );
+        
+        // --- UPDATED EDIT LOGIC FOR REPLY FIELDS ---
+        if (updates.replyId && updates.message) {
+            await db.collection('tickets').updateOne(
+                { ticketid, "replies.replyId": updates.replyId },
+                { 
+                    $set: { 
+                        "replies.$.message": updates.message,
+                        "replies.$.editedAt": new Date(), // Set edit timestamp
+                        "replies.$.editedBy": session.userId, // Set editor ID
+                        updatedAt: new Date() 
+                    } 
+                }
+            );
+        } else {
+            await db.collection('tickets').updateOne(
+                { ticketid },
+                { $set: { ...updates, updatedAt: new Date() } }
+            );
+        }
 
         // --- INFO LOGGING ---
         if (updates.status) {
