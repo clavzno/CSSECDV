@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { Search, ArrowUpDown, Filter, X } from 'lucide-react';
+import Link from 'next/link'; // Add this line!
 
 const mockUsers = [
   { id: '#0142067', name: 'John Smith', email: 'email@edu.com', role: 'admin', active: 'N/A', all: 'N/A' },
@@ -137,9 +138,12 @@ export default function UserManagement({ role, session, users }) {
 
                       {/* DB LOGIC: Only render the Manage button if the user is NOT an admin */}
                       {user.role?.toLowerCase() !== 'admin' && (
-                        <button className="bg-tiggets-lightgreen hover:opacity-90 text-white px-5 py-1.5 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer">
-                          Manage
-                        </button>
+                        
+                        <Link href={`/user-management/${user.id.replace('#', '')}`}>
+                          <button className="bg-tiggets-lightgreen hover:opacity-90 text-white px-5 py-1.5 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer">
+                            Manage
+                          </button>
+                        </Link>
                       )}
 
                     </td>
