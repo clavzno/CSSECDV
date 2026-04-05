@@ -41,39 +41,56 @@ export default async function UserManagementPage() {
     const tickets = await db.collection('tickets').find({}).toArray();
 
     // Map the users and get their ticket metrics
-    const formattedUsers = users.map(user => {
-        const userIdStr = String(user._id);
-        const altUserId = String(user.userId || '').trim();
+    const ACTIVE_STATUSES = new Set(['open', 'pending', 'processing']);
+
+    const formattedUsers = users.map((user) => {
+        const objectId = String(user._id || '').trim();
         const username = String(user.username || '').trim();
+        const usernameLower = String(user.usernameLower || username.toLowerCase()).trim();
+        const email = String(user.email || '').trim();
+        const emailLower = String(user.emailLower || email.toLowerCase()).trim();
+        const role = String(user.role || 'customer').toLowerCase();
+
+        const userIdentifiers = new Set(
+            [
+                objectId,
+                username,
+                usernameLower,
+                email,
+                emailLower,
+            ]
+                .map((value) => String(value || '').trim())
+                .filter(Boolean)
+        );
 
         const isCurrentUser =
-            currentSessionId === userIdStr ||
-            currentSessionId === altUserId ||
-            currentSessionId === username;
+            userIdentifiers.has(currentSessionId) ||
+            userIdentifiers.has(currentSessionId.toLowerCase());
 
-        // Find tickets tied to this user based on their role
-        let userTickets = [];
-        if (user.role?.toLowerCase() === 'customer') {
-            userTickets = tickets.filter(t =>
-                t.createdBy === userIdStr || t.createdBy === altUserId || t.createdBy === username
-            );
-        } else {
-            userTickets = tickets.filter(t =>
-                t.assignedTo === userIdStr || t.assignedTo === altUserId || t.assignedTo === username
-            );
-        }
+        const userTickets = tickets.filter((ticket) => {
+            const ticketOwnerValue =
+                role === 'customer'
+                    ? String(ticket.createdBy || '').trim()
+                    : String(ticket.assignedTo || '').trim();
 
-        // Count active tickets (anything not resolved)
-        const activeCount = userTickets.filter(t =>
-            ['Open', 'Processing', 'Pending'].includes(t.status || 'Open')
+            if (!ticketOwnerValue) return false;
+
+            return (
+                userIdentifiers.has(ticketOwnerValue) ||
+                userIdentifiers.has(ticketOwnerValue.toLowerCase())
+            );
+        });
+
+        const activeCount = userTickets.filter((ticket) =>
+            ACTIVE_STATUSES.has(String(ticket.status || '').trim().toLowerCase())
         ).length;
 
         return {
-            id: altUserId || userIdStr,
-            name: user.firstName + " " + user.lastName || 'No name provided.',
-            username: user.username || "No username provided.",
-            email: user.email || 'No email provided.',
-            role: user.role?.toLowerCase() || 'customer' || "No role provided.",
+            id: objectId,
+            name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'No name provided.',
+            username: username || 'No username provided.',
+            email: email || 'No email provided.',
+            role,
             active: activeCount,
             all: userTickets.length,
             isCurrentUser,
@@ -82,9 +99,8 @@ export default async function UserManagementPage() {
 
     return (
         <main className="ml-56 min-h-screen bg-background p-6">
-            {/** if the user is a manager, they can see the list of tickets per user */}
+            {/** if the user is a manager, they can see the list of tickets per user. if they are an admin, they can create a new user and/or change roles. */}
             <UserManagement role={session.role} session={session} users={formattedUsers} />
-            {/** if the user is an admin, they can see that and change the roles per user */}
         </main>
     );
 }

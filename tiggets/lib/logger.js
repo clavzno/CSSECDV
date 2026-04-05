@@ -2,6 +2,14 @@ import clientPromise from '@/lib/mongodb';
 import crypto from 'crypto';
 import { ObjectId } from 'mongodb'; 
 
+// for admin role change and deletion
+export const LOG_EVENT_TYPES = {
+    ROLE_CHANGE: 'ROLE_CHANGE',
+    BULK_ROLE_CHANGE: 'BULK_ROLE_CHANGE',
+    USER_DELETION: 'USER_DELETION',
+    BULK_USER_DELETION: 'BULK_USER_DELETION',
+};
+
 export async function createLog({ 
     userId, 
     actionType,     
