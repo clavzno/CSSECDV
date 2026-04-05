@@ -44,10 +44,13 @@ export default function UserManagement({ role, users, pendingUsers }) {
   function toggleAll(users) {
     if (!isAdmin) return;
 
-    if (selectedUsers.size === users.length) {
+    const selectableUsers = users.filter((u) => String(u.role || '').toLowerCase() !== 'admin');
+    const selectableIds = selectableUsers.map((u) => u.id);
+
+    if (selectableIds.length > 0 && selectableIds.every((id) => selectedUsers.has(id))) {
       setSelectedUsers(new Set());
     } else {
-      setSelectedUsers(new Set(users.map((u) => u.id)));
+      setSelectedUsers(new Set(selectableIds));
     }
   }
 
@@ -414,11 +417,17 @@ export default function UserManagement({ role, users, pendingUsers }) {
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="bg-div-gray border-b border-border-gray">
+                  {/** will not render a checkbox for other admin accounts */}
                   {isAdmin && (
                     <th className="py-4 px-4">
                       <input
                         type="checkbox"
-                        checked={selectedUsers.size === processedUsers.length && processedUsers.length > 0}
+                        checked={
+                          processedUsers.filter((u) => String(u.role || '').toLowerCase() !== 'admin').length > 0 &&
+                          processedUsers
+                            .filter((u) => String(u.role || '').toLowerCase() !== 'admin')
+                            .every((u) => selectedUsers.has(u.id))
+                        }
                         onChange={() => toggleAll(processedUsers)}
                       />
                     </th>
@@ -438,11 +447,13 @@ export default function UserManagement({ role, users, pendingUsers }) {
                   <tr key={user.id} className="border-b border-border-gray hover:bg-div-gray/30 transition-colors bg-white">
                     {isAdmin && (
                       <td className="py-2 px-4">
-                        <input
-                          type="checkbox"
-                          checked={selectedUsers.has(user.id)}
-                          onChange={() => toggleUser(user.id)}
-                        />
+                        {user.role?.toLowerCase() !== 'admin' ? (
+                          <input
+                            type="checkbox"
+                            checked={selectedUsers.has(user.id)}
+                            onChange={() => toggleUser(user.id)}
+                          />
+                        ) : null}
                       </td>
                     )}
 
