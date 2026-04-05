@@ -2,6 +2,7 @@ import AdminDashboard from '@/components/AdminDashboard';
 import ManagerDashboard from '@/components/ManagerDashboard';
 import CustomerDashboard from '@/components/CustomerDashboard';
 import clientPromise from '@/lib/mongodb';
+import { resolveUsernameFromUserId } from '@/lib/resolveUsernameFromUserId';
 
 async function mapReply(reply) {
   return {
@@ -15,7 +16,15 @@ async function mapReply(reply) {
   };
 }
 
-async function mapTicket(ticket) {
+async function mapTicket(ticket, db) {
+  const createdByRaw = ticket?.createdBy ? String(ticket.createdBy) : '';
+  const assignedToRaw = ticket?.assignedTo ? String(ticket.assignedTo) : '';
+
+  const createdByUsername = await resolveUsernameFromUserId(db, createdByRaw);
+  const assignedToUsername = assignedToRaw
+    ? await resolveUsernameFromUserId(db, assignedToRaw)
+    : 'N/A';
+
   return {
     _id: String(ticket?._id ?? ''),
     ticketid: String(ticket?.ticketid ?? ticket?.ticketId ?? ''),
@@ -23,14 +32,19 @@ async function mapTicket(ticket) {
     type: String(ticket?.type ?? ''),
     body: String(ticket?.body ?? ''),
     status: String(ticket?.status ?? ''),
-    createdBy: String(ticket?.createdBy ?? ''),
+    createdBy: createdByRaw,
+    createdByUsername,
     createdAt: ticket?.createdAt
       ? new Date(ticket.createdAt).toISOString()
       : '',
+    assignedTo: assignedToRaw || 'N/A',
+    assignedToUsername,
     assignedManagerId: ticket?.assignedManagerId
       ? String(ticket.assignedManagerId)
       : 'N/A',
-    lastAccessedAt: ticket?.lastAccessedAt ? new Date(ticket.lastAccessedAt).toISOString() : null,
+    lastAccessedAt: ticket?.lastAccessedAt
+      ? new Date(ticket.lastAccessedAt).toISOString()
+      : null,
     attachments: Array.isArray(ticket?.attachments) ? ticket.attachments : [],
     replies: Array.isArray(ticket?.replies)
       ? await Promise.all(ticket.replies.map(mapReply))
@@ -80,7 +94,7 @@ async function getTicketsForRole(role, session) {
     .sort({ lastAccessedAt: -1, createdAt: -1 })
     .toArray();
 
-  return Promise.all(tickets.map(mapTicket));
+  return Promise.all(tickets.map((ticket) => mapTicket(ticket, db)));
 }
 
 // session is called in page.tsx for dashboard
@@ -91,10 +105,10 @@ export default async function Dashboard({ role, session }) {
   function renderContent() {
     switch (normalizedRole) {
       case 'admin':
-        return <AdminDashboard role={normalizedRole} tickets={tickets} />;
+        return <AdminDashboard role={normalizedRole} tickets={tickets} session={session} />;
 
       case 'manager':
-        return <ManagerDashboard role={normalizedRole} tickets={tickets} />;
+        return <ManagerDashboard role={normalizedRole} tickets={tickets} session={session} />;
 
       case 'customer':
         return <CustomerDashboard role={normalizedRole} tickets={tickets} />;

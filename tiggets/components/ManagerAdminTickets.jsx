@@ -17,7 +17,7 @@ export default function ManagerAdminTickets({ role, session, tickets }) {
 
   const [filters, setFilters] = useState({
     id: "",
-    userId: "",
+    username: "",
     subject: "",
     type: "",
     status: "",
@@ -28,7 +28,9 @@ export default function ManagerAdminTickets({ role, session, tickets }) {
       ...ticket,
       id: String(ticket.ticketid ?? ticket.ticketId ?? ticket._id ?? ""),
       userId: String(ticket.createdBy ?? ""),
+      username: String(ticket.username ?? ticket.createdByUsername ?? "N/A"),
       assignedTo: String(ticket.assignedTo ?? "N/A"),
+      assignedToUsername: String(ticket.assignedToUsername ?? "N/A"),
       lastUpdate: ticket.createdAt
         ? new Date(ticket.createdAt).toLocaleDateString()
         : "",
@@ -51,7 +53,7 @@ export default function ManagerAdminTickets({ role, session, tickets }) {
   const clearFilters = () => {
     setFilters({
       id: "",
-      userId: "",
+      username: "",
       subject: "",
       type: "",
       status: "",
@@ -66,26 +68,29 @@ export default function ManagerAdminTickets({ role, session, tickets }) {
     const matchesSearch =
       quick === "" ||
       ticket.id.toLowerCase().includes(quick) ||
-      ticket.userId.toLowerCase().includes(quick) ||
+      ticket.username.toLowerCase().includes(quick) ||
       ticket.subject.toLowerCase().includes(quick) ||
       ticket.type.toLowerCase().includes(quick) ||
       ticket.status.toLowerCase().includes(quick) ||
-      ticket.assignedTo.toLowerCase().includes(quick);
+      ticket.assignedToUsername.toLowerCase().includes(quick);
 
     const matchesId = ticket.id.toLowerCase().includes(filters.id.toLowerCase());
-    const matchesUserId = ticket.userId.toLowerCase().includes(filters.userId.toLowerCase());
+    const matchesUsername = ticket.username.toLowerCase().includes(filters.username.toLowerCase());
     const matchesSubject = ticket.subject.toLowerCase().includes(filters.subject.toLowerCase());
     const matchesType = filters.type === "" || ticket.type === filters.type;
     const matchesStatus = filters.status === "" || ticket.status === filters.status;
 
     const matchesAssignment = canShowMyTickets && showMyTickets
-      ? ticket.assignedTo === String(session?.userId ?? "")
+      ? (
+          ticket.assignedTo === String(session?.userId ?? "") ||
+          ticket.assignedToUsername?.toLowerCase() === String(session?.username ?? "").toLowerCase()
+        )
       : true;
 
     return (
       matchesSearch &&
       matchesId &&
-      matchesUserId &&
+      matchesUsername &&
       matchesSubject &&
       matchesType &&
       matchesStatus &&
@@ -93,7 +98,6 @@ export default function ManagerAdminTickets({ role, session, tickets }) {
     );
   });
 
-  // do not move this
   if (!isManager && !isAdmin) return null;
 
   return (
@@ -106,10 +110,11 @@ export default function ManagerAdminTickets({ role, session, tickets }) {
         <div className="mb-4 flex w-full flex-col items-center gap-6 px-6 sm:flex-row">
           <button
             onClick={() => setShowFilters((prev) => !prev)}
-            className={`flex w-full cursor-pointer items-center justify-center gap-3 rounded-sm border px-4 py-2 text-sm font-medium shadow-sm transition-all sm:w-35 ${showFilters
-              ? "border-[#3b5949] text-[#3b5949]"
-              : "border-zinc-300 bg-white text-zinc-400"
-              }`}
+            className={`flex w-full cursor-pointer items-center justify-center gap-3 rounded-sm border px-4 py-2 text-sm font-medium shadow-sm transition-all sm:w-35 ${
+              showFilters
+                ? "border-[#3b5949] text-[#3b5949]"
+                : "border-zinc-300 bg-white text-zinc-400"
+            }`}
           >
             <Filter size={18} />
             Filters
@@ -131,10 +136,11 @@ export default function ManagerAdminTickets({ role, session, tickets }) {
           {canShowMyTickets && (
             <button
               onClick={() => setShowMyTickets((prev) => !prev)}
-              className={`flex cursor-pointer items-center justify-center gap-3 rounded-full border px-6 py-2 text-sm font-medium shadow-sm transition-all ${showMyTickets
+              className={`flex cursor-pointer items-center justify-center gap-3 rounded-full border px-6 py-2 text-sm font-medium shadow-sm transition-all ${
+                showMyTickets
                   ? "border-transparent bg-tiggets-lightgreen text-white"
                   : "border-zinc-300 bg-white text-zinc-400 hover:border-zinc-400"
-                }`}
+              }`}
             >
               {showMyTickets ? <CheckCircle2 size={18} /> : <Circle size={18} />}
               Show My Tickets
@@ -153,10 +159,10 @@ export default function ManagerAdminTickets({ role, session, tickets }) {
             />
 
             <input
-              name="userId"
-              value={filters.userId}
+              name="username"
+              value={filters.username}
               onChange={handleFilterChange}
-              placeholder="Filter by User ID"
+              placeholder="Filter by Username"
               className="rounded-sm border border-zinc-300 bg-white px-3 py-2 text-xs outline-none focus:border-[#3b5949]"
             />
 
@@ -205,7 +211,10 @@ export default function ManagerAdminTickets({ role, session, tickets }) {
           </div>
         )}
 
-        <TicketList tickets={filteredTickets} role={role} />
+        <TicketList
+          tickets={filteredTickets}
+          role={role}
+        />
       </div>
     </div>
   );

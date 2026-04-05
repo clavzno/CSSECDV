@@ -7,31 +7,39 @@ export default function TicketList({ tickets = [], role }) {
   const showAssignedTo = isManager || isAdmin;
   const showDetails = isManager || isAdmin;
 
-    // N/A if it's not ticket-related
-    function setTicketStatusColor(status) {
-        // accept resolved, RESOLVED, ReSolved, etc.
-        const normalizedStatus = status?.toUpperCase();
+  function setTicketStatusColor(status) {
+    const normalizedStatus = status?.toUpperCase();
 
-        switch (normalizedStatus) {
-            case 'RESOLVED':
-                return 'bg-green-200 text-green-800 border-green-300';
-            case 'OPEN':
-                return 'bg-red-200 text-red-800 border-red-300';
-            case 'PROCESSING':
-                return 'bg-teal-200 text-teal-800 border-teal-300';
-            case 'PENDING':
-                return 'bg-yellow-200 text-yellow-800 border-yellow-300';
-            case 'N/A':
-                return 'bg-gray-200 text-gray-800 border-gray-300';
-            default:
-                return 'bg-gray-200 text-gray-800 border-gray-300';
-        }
+    switch (normalizedStatus) {
+      case "RESOLVED":
+        return "bg-green-200 text-green-800 border-green-300";
+      case "OPEN":
+        return "bg-red-200 text-red-800 border-red-300";
+      case "PROCESSING":
+        return "bg-teal-200 text-teal-800 border-teal-300";
+      case "PENDING":
+        return "bg-yellow-200 text-yellow-800 border-yellow-300";
+      case "N/A":
+        return "bg-gray-200 text-gray-800 border-gray-300";
+      default:
+        return "bg-gray-200 text-gray-800 border-gray-300";
     }
+  }
 
   const displayTickets = tickets.map((ticket) => {
     const id = String(ticket.id ?? ticket.ticketid ?? ticket.ticketId ?? ticket._id ?? "");
-    const username = String(ticket.username ?? ticket.createdBy ?? "");
-    const assignedTo = String(ticket.assignedTo ?? ticket.assignedManagerId ?? "N/A");
+    const username = String(
+      ticket.username ??
+      ticket.createdByUsername ??
+      ticket.createdBy ??
+      ""
+    );
+    const assignedTo = String(
+      ticket.assignedToUsername ??
+      ticket.assignedTo ??
+      ticket.assignedManagerId ??
+      "N/A"
+    );
     const lastUpdate = ticket.lastUpdate
       ? String(ticket.lastUpdate)
       : ticket.createdAt
@@ -56,7 +64,7 @@ export default function TicketList({ tickets = [], role }) {
         <thead>
           <tr className="border-b border-border-gray bg-div-gray">
             <th className="px-6 py-4 font-semibold">Ticket ID #</th>
-            <th className="px-6 py-4 font-semibold">User ID #</th>
+            <th className="px-6 py-4 font-semibold">Username</th>
             <th className="px-6 py-4 font-semibold">Subject</th>
             <th className="px-6 py-4 font-semibold">Type</th>
             <th className="px-6 py-4 text-center font-semibold">Status</th>

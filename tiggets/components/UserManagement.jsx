@@ -1,7 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { Search, ArrowUpDown, Filter, X } from 'lucide-react';
-import Link from 'next/link'; // Add this line!
+import Link from 'next/link';
 
 /* const mockUsers = [
   { id: '#0142067', name: 'John Smith', email: 'email@edu.com', role: 'admin', active: 'N/A', all: 'N/A' },
@@ -12,14 +12,11 @@ import Link from 'next/link'; // Add this line!
 
 // user
 export default function UserManagement({ role, session, users }) {
+  // authorization is checked in page.tsx
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [roleFilter, setRoleFilter] = useState('');
   const [sortBy, setSortBy] = useState('numerical');
-
-  if (role?.toLowerCase() !== 'manager' && role?.toLowerCase() !== 'admin') {
-    return <div className="p-6 font-text">Access Denied.</div>;
-  }
 
   const clearFilters = () => {
     setRoleFilter('');
@@ -118,7 +115,7 @@ export default function UserManagement({ role, session, users }) {
               <thead>
                 <tr className="bg-div-gray border-b border-border-gray">
                   <th className="py-4 px-6 font-semibold">User ID #</th>
-                  <th className="py-4 px-6 font-semibold">Username</th> 
+                  <th className="py-4 px-6 font-semibold">Username</th>
                   <th className="py-4 px-6 font-semibold">Name</th>
                   <th className="py-4 px-6 font-semibold">Email</th>
                   <th className="py-4 px-6 font-semibold">Role</th>
@@ -131,7 +128,7 @@ export default function UserManagement({ role, session, users }) {
                 {processedUsers.map((user) => (
                   <tr key={user.id} className="border-b border-border-gray hover:bg-div-gray/30 transition-colors bg-white">
                     <td className="py-4 px-6 font-medium text-zinc-800">{user.id}</td>
-                    <th className="py-4 px-6 font-semibold">{user.username}</th> 
+                    <th className="py-4 px-6 font-semibold">{user.username}</th>
                     <td className="py-4 px-6 text-zinc-800">{user.name}</td>
                     <td className="py-4 px-6 text-zinc-800">{user.email}</td>
                     <td className="py-4 px-6 text-zinc-800 capitalize">{user.role}</td>
@@ -141,7 +138,7 @@ export default function UserManagement({ role, session, users }) {
 
                       {/* DB LOGIC: Only render the Manage button if the user is NOT an admin */}
                       {user.role?.toLowerCase() !== 'admin' && (
-                        
+
                         <Link href={`/user-management/${user.id.replace('#', '')}`}>
                           <button className="bg-tiggets-lightgreen hover:opacity-90 text-white px-5 py-1.5 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer">
                             Manage

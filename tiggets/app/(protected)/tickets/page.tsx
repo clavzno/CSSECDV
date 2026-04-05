@@ -1,9 +1,13 @@
 // this page fetches tickets and passes them into Admin/ManagerTickets views
 import { redirect } from 'next/navigation';
+import clientPromise from '@/lib/mongodb';
+// content
 import ManagerAdminTickets from '@/components/ManagerAdminTickets';
 import CreateTicket from '@/components/CreateTicket';
+// rbac
+import isAuthorized from '@/lib/rbac';
 import { getCurrentSession } from '@/lib/rbac';
-import clientPromise from '@/lib/mongodb';
+import { resolveUsernameFromUserId } from '@/lib/resolveUsernameFromUserId';
 
 type TicketReply = {
   replyId: string;
@@ -21,10 +25,15 @@ type Ticket = {
   body: string;
   status: string;
   createdBy: string;
+  createdByUsername: string;
   createdAt: string;
   assignedTo: string | 'N/A';
+  assignedToUsername: string;
   attachments: unknown[];
   replies: TicketReply[];
+  editedAt: string | null;
+  editedBy: string | null;
+  lastAccessedAt: string | null;
 };
 
 type SafeSession = {
@@ -47,7 +56,15 @@ function mapReply(reply: any): TicketReply {
 
 // do not remove this next line
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapTicket(ticket: any): Ticket {
+async function mapTicket(ticket: any, db: any): Promise<Ticket> {
+  const createdByRaw = ticket?.createdBy ? String(ticket.createdBy) : '';
+  const assignedToRaw = ticket?.assignedTo ? String(ticket.assignedTo) : '';
+
+  const createdByUsername = await resolveUsernameFromUserId(db, createdByRaw);
+  const assignedToUsername = assignedToRaw
+    ? await resolveUsernameFromUserId(db, assignedToRaw)
+    : 'N/A';
+
   return {
     _id: String(ticket?._id ?? ''),
     ticketid: String(ticket?.ticketid ?? ticket?.ticketId ?? ''),
@@ -55,14 +72,18 @@ function mapTicket(ticket: any): Ticket {
     type: String(ticket?.type ?? ''),
     body: String(ticket?.body ?? ''),
     status: String(ticket?.status ?? ''),
-    createdBy: String(ticket?.createdBy ?? ''),
+    createdBy: createdByRaw,
+    createdByUsername,
     createdAt: ticket?.createdAt ? new Date(ticket.createdAt).toISOString() : '',
-    assignedTo: ticket?.assignedTo
-      ? String(ticket.assignedTo)
-      : 'N/A',
-    lastAccessedAt: ticket?.lastAccessedAt ? new Date(ticket.lastAccessedAt).toISOString() : null,
+    assignedTo: assignedToRaw || 'N/A',
+    assignedToUsername,
     attachments: Array.isArray(ticket?.attachments) ? ticket.attachments : [],
     replies: Array.isArray(ticket?.replies) ? ticket.replies.map(mapReply) : [],
+    editedAt: ticket?.editedAt ? new Date(ticket.editedAt).toISOString() : null,
+    editedBy: ticket?.editedBy ? String(ticket.editedBy) : null,
+    lastAccessedAt: ticket?.lastAccessedAt
+      ? new Date(ticket.lastAccessedAt).toISOString()
+      : null,
   };
 }
 
@@ -109,7 +130,7 @@ async function getTicketsForRole(
     .sort({ lastAccessedAt: -1, createdAt: -1 })
     .toArray();
 
-  return tickets.map(mapTicket);
+  return Promise.all(tickets.map((ticket) => mapTicket(ticket, db)));
 }
 
 export default async function TicketsPage() {
@@ -134,16 +155,14 @@ export default async function TicketsPage() {
 
   const tickets = await getTicketsForRole(role, safeSession);
 
-  // only admins and managers can view this table page
-  if (role !== 'admin' && role !== 'manager') {
+  const currentPath = '/tickets';
+  if (!isAuthorized(session.role.toLowerCase(), currentPath)) {
     return (
-      <div className="flex h-screen bg-background font-text text-foreground">
-        <main className="ml-56 flex-1 overflow-y-auto p-8">
-          <h1 className="mb-8 text-3xl font-bold">
-            You are not authorized to view this page.
-          </h1>
-        </main>
-      </div>
+      <main className="ml-56 min-h-screen bg-background p-6">
+        <h1 className="mb-8 text-3xl font-bold">
+          You are not authorized to view this page.
+        </h1>
+      </main>
     );
   }
 

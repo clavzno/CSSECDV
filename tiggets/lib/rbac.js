@@ -48,7 +48,7 @@ export async function getCurrentSession() {
 }
 
 // 4. Centralized Authorization Check
-export function isAuthorized(userRole, currentPath) {
+export default function isAuthorized(userRole, currentPath) {
   // If the path isn't strictly defined, default to closed (Fail Securely)
   const allowedRoles = ROUTE_PERMISSIONS[currentPath];
   if (!allowedRoles) return false;
