@@ -26,6 +26,9 @@ export default async function Settings({ session }) {
     const role = user?.role 
         ? user.role.charAt(0).toUpperCase() + user.role.slice(1) 
         : "N/A";
+        
+    // Create a boolean to easily check if the user is an admin
+    const isAdmin = user?.role?.toLowerCase() === 'admin';
 
     return (
         <div>
@@ -43,7 +46,10 @@ export default async function Settings({ session }) {
                     <div>
                         <p className="text-sm font-medium text-zinc-500">Username</p>
                         <p className="mt-1 text-base font-medium text-zinc-900">{username}</p>
-                        <p className="mt-1 text-sm text-zinc-500">Please contact an admin to change your username.</p>
+                        {/* Only show this text if the user is NOT an admin */}
+                        {!isAdmin && (
+                            <p className="mt-1 text-sm text-zinc-500">Please contact an admin to change your username.</p>
+                        )}
                     </div>
 
                     {/** Role */}
@@ -54,14 +60,20 @@ export default async function Settings({ session }) {
                                 {role}
                             </span>
                         </div>
-                        <p className="text-sm text-zinc-500">Please contact an admin to change your role.</p>
+                        {/* Only show this text if the user is NOT an admin */}
+                        {!isAdmin && (
+                            <p className="text-sm text-zinc-500">Please contact an admin to change your role.</p>
+                        )}
                     </div>
 
                     {/** Email */}
                     <div>
                         <p className="text-sm font-medium text-zinc-500">Email Address</p>
                         <p className="mt-1 text-base text-zinc-900">{email}</p>
-                        <p className="mt-1 text-sm text-zinc-500">Please contact an admin to change your email.</p>
+                        {/* Only show this text if the user is NOT an admin */}
+                        {!isAdmin && (
+                            <p className="mt-1 text-sm text-zinc-500">Please contact an admin to change your email.</p>
+                        )}
                     </div>
 
                     {/** Change Password*/}
