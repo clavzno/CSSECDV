@@ -132,7 +132,7 @@ export async function POST(request) {
             eventType: LOG_EVENT_TYPES.ACCOUNT_INITIATION,
             details: `Resent account initiation email for ${String(pendingUser.username || '')} (${String(pendingUser.email || '')}) with role ${String(pendingUser.role || '')}.`,
             ticketStatus: 'N/A',
-            status: 'SUCCESS',
+            status: 'N/A',
             priorityLevel: 'LOW',
             priority: 'INFO',
         });

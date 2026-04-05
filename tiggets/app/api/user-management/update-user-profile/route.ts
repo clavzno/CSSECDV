@@ -153,7 +153,7 @@ export async function PATCH(request) {
       actionType: LOG_EVENT_TYPES.USER_PROFILE_UPDATE,
       eventType: LOG_EVENT_TYPES.USER_PROFILE_UPDATE,
       priority: 'INFO',
-      status: 'SUCCESS',
+      status: 'N/A',
       ticketStatus: 'N/A',
       priorityLevel: 'INFO',
       details: `${String(session.userId)} updated profile for ${oldUsername}${changedFields.length > 0 ? ` | ${changedFields.join(' | ')}` : ' | no field changes detected'}`

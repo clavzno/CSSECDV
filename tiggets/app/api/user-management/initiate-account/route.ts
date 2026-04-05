@@ -206,7 +206,7 @@ export async function POST(request) {
       eventType: LOG_EVENT_TYPES.ACCOUNT_INITIATION,
       details: `Initiated account for ${username} (${email}) with role ${role}.`,
       ticketStatus: 'N/A',
-      status: 'SUCCESS',
+      status: 'N/A',
       priorityLevel: 'LOW',
       priority: 'INFO',
     });

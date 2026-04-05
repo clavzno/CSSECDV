@@ -1,6 +1,7 @@
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import AdminProfileEditor from '@/components/AdminProfileEditor';
+import CustomerProfileEditor from '@/components/CustomerProfileEditor';
 
 export default async function Settings({ session }) {
     const client = await clientPromise;
@@ -29,11 +30,15 @@ export default async function Settings({ session }) {
     const lastName = user?.lastName ?? '';
     const username = user?.username ?? 'N/A';
     const email = user?.email ?? user?.emailLower ?? 'N/A';
+
+    const normalizedRole = String(user?.role ?? '').toLowerCase();
     const role = user?.role
         ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
         : 'N/A';
 
-    const isAdmin = user?.role?.toLowerCase() === 'admin';
+    const isAdmin = normalizedRole === 'admin';
+    const isManager = normalizedRole === 'manager';
+    const isCustomer = normalizedRole === 'customer';
 
     return (
         <div>
@@ -52,12 +57,29 @@ export default async function Settings({ session }) {
                             email={email}
                             role={role}
                         />
+                    ) : isCustomer || isManager ? (
+                        <CustomerProfileEditor
+                            firstName={firstName}
+                            lastName={lastName}
+                            username={username}
+                            email={email}
+                            role={role}
+                        />
                     ) : (
                         <>
                             <div>
+                                <p className="text-sm font-medium text-zinc-500">First Name</p>
+                                <p className="mt-1 text-base text-zinc-900">{firstName || 'N/A'}</p>
+                            </div>
+
+                            <div>
+                                <p className="text-sm font-medium text-zinc-500">Last Name</p>
+                                <p className="mt-1 text-base text-zinc-900">{lastName || 'N/A'}</p>
+                            </div>
+
+                            <div>
                                 <p className="text-sm font-medium text-zinc-500">Username</p>
                                 <p className="mt-1 text-base font-medium text-zinc-900">{username}</p>
-                                <p className="mt-1 text-sm text-zinc-500">Please contact an admin to change your username.</p>
                             </div>
 
                             <div>
@@ -67,13 +89,11 @@ export default async function Settings({ session }) {
                                         {role}
                                     </span>
                                 </div>
-                                <p className="text-sm text-zinc-500">Please contact an admin to change your role.</p>
                             </div>
 
                             <div>
                                 <p className="text-sm font-medium text-zinc-500">Email Address</p>
                                 <p className="mt-1 text-base text-zinc-900">{email}</p>
-                                <p className="mt-1 text-sm text-zinc-500">Please contact an admin to change your email.</p>
                             </div>
                         </>
                     )}
