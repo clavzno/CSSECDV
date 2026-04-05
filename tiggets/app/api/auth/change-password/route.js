@@ -6,6 +6,22 @@ import { ObjectId } from 'mongodb';
 // Cleaned up the imports to just pull exactly what we need
 import { hashPassword, verifyPassword } from '@/lib/crypto'; 
 
+function validatePassword(password) {
+  const checks = {
+    minLength: password.length >= 15,
+    maxLength: password.length <= 64,
+    hasUpper: /[A-Z]/.test(password),
+    hasLower: /[a-z]/.test(password),
+    hasNumber: /\d/.test(password),
+    hasSpecial: /[^A-Za-z0-9]/.test(password),
+  };
+
+  return {
+    checks,
+    isValid: Object.values(checks).every(Boolean),
+  };
+} 
+
 // 1. GET ROUTE: Send the questions to the frontend
 export async function GET(request) {
     try {
@@ -40,6 +56,12 @@ export async function POST(request) {
 
         if (!answers || answers.length !== 3 || !newPassword) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        }
+
+        // Validate password strength
+        const passwordValidation = validatePassword(newPassword);
+        if (!passwordValidation.isValid) {
+            return NextResponse.json({ error: 'Password does not meet policy requirements.' }, { status: 400 });
         }
 
         const client = await clientPromise;
