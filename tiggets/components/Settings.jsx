@@ -1,7 +1,7 @@
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
-export default async function Profile({ session }) {
+export default async function Settings({ session }) {
     const client = await clientPromise;
     const db = client.db('TicketingSystem');
 
@@ -16,7 +16,6 @@ export default async function Profile({ session }) {
                     username: 1,
                     role: 1,
                     emailLower: 1,
-                    lastLoginAttempt: 1,
                 },
             }
         );
@@ -25,36 +24,35 @@ export default async function Profile({ session }) {
     const username = user?.username ?? "N/A";
     const email = user?.emailLower ?? "N/A";
     const role = user?.role ?? "N/A";
-    const lastLoginAttempt = user?.lastLoginAttempt?.date
-        ? new Date(user.lastLoginAttempt.date).toLocaleString()
-        : "N/A";
 
     return (
         <div>
             {/** Header */}
             <div className="w-full font-text text-foreground">
-                <h1 className="text-3xl font-bold mb-8">Profile (WIP - update session jwt)</h1>
+                <h1 className="text-3xl font-bold mb-8">Settings</h1>
             </div>
 
             {/** Profile Content */}
             <div className="max-w-3xl rounded-xl border border-border-gray bg-background p-6 shadow-sm">
                 <div className="space-y-6">
-                    {/** Username */}
+
+
+                    {/** actual content should go here, just remove the divs that are inside this one for settings */}
                     <div>
-                        <p className="text-sm font-medium text-muted-foreground">Username</p>
-                        <p className="mt-1 text-base text-foreground">{username}</p>
+                        <p className="text-sm font-medium text-muted-foreground">Username: {username}</p>
+                        <p className="mt-1 text-base text-foreground">Please contact an admin to change your username.</p>
                     </div>
 
                     {/** Role */}
                     <div>
-                        <p className="text-sm font-medium text-muted-foreground">Role</p>
-                        <p className="mt-1 text-base text-foreground">{role}</p>
+                        <p className="text-sm font-medium text-muted-foreground">Role: {role}</p>
+                        <p className="mt-1 text-base text-foreground">Please contact an admin to change your role.</p>
                     </div>
 
                     {/** Email */}
                     <div>
-                        <p className="text-sm font-medium text-muted-foreground">Email</p>
-                        <p className="mt-1 text-base text-foreground">{email}</p>
+                        <p className="text-sm font-medium text-muted-foreground">Email: {email}</p>
+                        <p className="mt-1 text-base text-foreground">Please contact an admin to change your email.</p>
                     </div>
 
                     {/** Change Password Link */}
@@ -68,11 +66,7 @@ export default async function Profile({ session }) {
                         </a>
                     </div>
 
-                    {/** Last Login Attempt Date */}
-                    <div>
-                        <p className="text-sm font-medium text-muted-foreground">Last Login Attempt</p>
-                        <p className="mt-1 text-base text-foreground">{lastLoginAttempt}</p>
-                    </div>
+
                 </div>
             </div>
         </div>
