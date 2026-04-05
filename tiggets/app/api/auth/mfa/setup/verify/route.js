@@ -66,10 +66,11 @@ export async function POST(request) {
     }
 
     const secret = decryptMfaSecret(challenge.tempSecretEncrypted);
-    const isCodeValid = totp.verifySync({
+    const verificationResult = totp.verifySync({
       token: normalizedCode,
       secret,
     });
+    const isCodeValid = verificationResult === true || verificationResult?.valid === true;
 
     if (!isCodeValid) {
       const attempts = (challenge.setupAttempts || 0) + 1;
