@@ -55,18 +55,6 @@ export default async function Settings({ session }) {
                         <p className="mt-1 text-base text-foreground">Please contact an admin to change your email.</p>
                     </div>
 
-                    {/** Change Password Link */}
-                    <div>
-                        <p className="text-sm font-medium text-muted-foreground">Password</p>
-                        <a
-                            href="/settings"
-                            className="mt-1 inline-block text-sm font-medium text-blue-600 hover:underline"
-                        >
-                            Change Password
-                        </a>
-                    </div>
-
-
                 </div>
             </div>
         </div>

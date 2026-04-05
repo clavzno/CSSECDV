@@ -1,5 +1,6 @@
 // this layout applies to every single (protected) page,
 import type { ReactNode } from 'react';
+import { redirect } from 'next/navigation';
 
 // check role
 import { getCurrentSession } from '@/lib/rbac';
@@ -19,7 +20,7 @@ export default async function ProtectedLayout({
     const session = await getCurrentSession();
 
     if (!session) {
-        return <div>Unauthorized</div>;
+        redirect('/');
     }
 
     return (
