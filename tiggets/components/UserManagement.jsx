@@ -3,13 +3,14 @@ import { useState } from 'react';
 import { Search, ArrowUpDown, Filter, X } from 'lucide-react';
 import Link from 'next/link'; // Add this line!
 
-const mockUsers = [
+/* const mockUsers = [
   { id: '#0142067', name: 'John Smith', email: 'email@edu.com', role: 'admin', active: 'N/A', all: 'N/A' },
   { id: '#0142068', name: 'George Droid', email: 'georgedroid@edu.com', role: 'customer', active: 2, all: 2 },
   { id: '#0142069', name: 'Charlie Kirk', email: 'charliekirk@edu.com', role: 'manager', active: 3, all: 3 },
   { id: '#0142070', name: 'Jacobi Dream', email: 'jacobidream@edu.com', role: 'manager', active: 4, all: 4 },
-];
+]; */
 
+// user
 export default function UserManagement({ role, session, users }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -26,7 +27,7 @@ export default function UserManagement({ role, session, users }) {
     setSearchTerm('');
   };
 
-  const dataToUse = users || mockUsers;
+  const dataToUse = users; // || mockUsers
 
   let processedUsers = dataToUse.filter(user => {
     const matchesSearch =
@@ -117,6 +118,7 @@ export default function UserManagement({ role, session, users }) {
               <thead>
                 <tr className="bg-div-gray border-b border-border-gray">
                   <th className="py-4 px-6 font-semibold">User ID #</th>
+                  <th className="py-4 px-6 font-semibold">Username</th> 
                   <th className="py-4 px-6 font-semibold">Name</th>
                   <th className="py-4 px-6 font-semibold">Email</th>
                   <th className="py-4 px-6 font-semibold">Role</th>
@@ -129,6 +131,7 @@ export default function UserManagement({ role, session, users }) {
                 {processedUsers.map((user) => (
                   <tr key={user.id} className="border-b border-border-gray hover:bg-div-gray/30 transition-colors bg-white">
                     <td className="py-4 px-6 font-medium text-zinc-800">{user.id}</td>
+                    <th className="py-4 px-6 font-semibold">{user.username}</th> 
                     <td className="py-4 px-6 text-zinc-800">{user.name}</td>
                     <td className="py-4 px-6 text-zinc-800">{user.email}</td>
                     <td className="py-4 px-6 text-zinc-800 capitalize">{user.role}</td>

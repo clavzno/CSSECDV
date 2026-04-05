@@ -49,9 +49,10 @@ export default async function UserManagementPage() {
 
         return {
             id: altUserId || userIdStr, 
-            name: username || 'Unknown User',
-            email: user.email || 'No email provided',
-            role: user.role?.toLowerCase() || 'customer',
+            name: user.firstName + " " + user.lastName || 'No name provided.',
+            username: user.username || "No username provided.",
+            email: user.email || 'No email provided.',
+            role: user.role?.toLowerCase() || 'customer' || "No role provided." ,
             active: activeCount,
             all: userTickets.length
         };
