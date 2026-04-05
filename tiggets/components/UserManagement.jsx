@@ -3,13 +3,6 @@ import { useState } from 'react';
 import { Search, ArrowUpDown, Filter, X } from 'lucide-react';
 import Link from 'next/link';
 
-/* const mockUsers = [
-  { id: '#0142067', name: 'John Smith', email: 'email@edu.com', role: 'admin', active: 'N/A', all: 'N/A' },
-  { id: '#0142068', name: 'George Droid', email: 'georgedroid@edu.com', role: 'customer', active: 2, all: 2 },
-  { id: '#0142069', name: 'Charlie Kirk', email: 'charliekirk@edu.com', role: 'manager', active: 3, all: 3 },
-  { id: '#0142070', name: 'Jacobi Dream', email: 'jacobidream@edu.com', role: 'manager', active: 4, all: 4 },
-]; */
-
 // user
 export default function UserManagement({ role, session, users }) {
   // authorization is checked in page.tsx
@@ -127,26 +120,31 @@ export default function UserManagement({ role, session, users }) {
               <tbody>
                 {processedUsers.map((user) => (
                   <tr key={user.id} className="border-b border-border-gray hover:bg-div-gray/30 transition-colors bg-white">
-                    <td className="py-4 px-6 font-medium text-zinc-800">{user.id}</td>
-                    <th className="py-4 px-6 font-semibold">{user.username}</th>
-                    <td className="py-4 px-6 text-zinc-800">{user.name}</td>
-                    <td className="py-4 px-6 text-zinc-800">{user.email}</td>
-                    <td className="py-4 px-6 text-zinc-800 capitalize">{user.role}</td>
-                    <td className="py-4 px-6 text-center text-zinc-800">{user.active}</td>
-                    <td className="py-4 px-6 text-center text-zinc-800">{user.all}</td>
-                    <td className="py-4 px-6 text-center">
+                    <td className="py-2 px-6 font-medium text-zinc-800">{user.id}</td>
+                    <th className="py-2 px-6 font-semibold">{user.username}</th>
+                    <td className="py-2 px-6 text-zinc-800">{user.name}</td>
+                    <td className="py-2 px-6 text-zinc-800">{user.email}</td>
+                    <td className="py-2 px-6 text-zinc-800 capitalize">{user.role}</td>
+                    <td className="py-2 px-6 text-center text-zinc-800">{user.active}</td>
+                    <td className="py-2 px-6 text-center text-zinc-800">{user.all}</td>
 
-                      {/* DB LOGIC: Only render the Manage button if the user is NOT an admin */}
-                      {user.role?.toLowerCase() !== 'admin' && (
-
-                        <Link href={`/user-management/${user.id.replace('#', '')}`}>
-                          <button className="bg-tiggets-lightgreen hover:opacity-90 text-white px-5 py-1.5 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer">
-                            Manage
-                          </button>
-                        </Link>
-                      )}
-
-                    </td>
+                      {/** START Actions Panel - if currentuser.id == tableuser.id, display that it's "You"; else show the manage button */}
+                      <td className="py-2 px-6 text-center">
+                        {user.isCurrentUser ? (
+                          <div className="flex justify-center">
+                            <span className="mt-1 inline-flex items-center rounded-full bg-blue-50 px-5 py-1.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                              You
+                            </span>
+                          </div>
+                        ) : user.role?.toLowerCase() !== 'admin' ? (
+                          <Link href={`/user-management/${user.id.replace('#', '')}`}>
+                            <button className="bg-tiggets-lightgreen hover:opacity-90 text-white px-5 py-1.5 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer">
+                              Manage
+                            </button>
+                          </Link>
+                        ) : null}
+                      </td>
+                      {/** END Actions Panel */}
                   </tr>
                 ))}
                 {processedUsers.length === 0 && (

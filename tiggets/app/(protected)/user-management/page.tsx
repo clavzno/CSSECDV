@@ -20,6 +20,8 @@ export default async function UserManagementPage() {
         userId: rawSession.userId.toString()
     };
 
+    const currentSessionId = String(rawSession.userId || "").trim();
+
     const client = await clientPromise;
     const db = client.db('TicketingSystem');
 
@@ -41,8 +43,13 @@ export default async function UserManagementPage() {
     // Map the users and get their ticket metrics
     const formattedUsers = users.map(user => {
         const userIdStr = String(user._id);
-        const altUserId = user.userId || '';
-        const username = user.username || '';
+        const altUserId = String(user.userId || '').trim();
+        const username = String(user.username || '').trim();
+
+        const isCurrentUser =
+            currentSessionId === userIdStr ||
+            currentSessionId === altUserId ||
+            currentSessionId === username;
 
         // Find tickets tied to this user based on their role
         let userTickets = [];
@@ -68,14 +75,16 @@ export default async function UserManagementPage() {
             email: user.email || 'No email provided.',
             role: user.role?.toLowerCase() || 'customer' || "No role provided.",
             active: activeCount,
-            all: userTickets.length
+            all: userTickets.length,
+            isCurrentUser,
         };
     });
-    // -------------------------------------
 
     return (
         <main className="ml-56 min-h-screen bg-background p-6">
+            {/** if the user is a manager, they can see the list of tickets per user */}
             <UserManagement role={session.role} session={session} users={formattedUsers} />
+            {/** if the user is an admin, they can see that and change the roles per user */}
         </main>
     );
 }
