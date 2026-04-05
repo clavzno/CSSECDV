@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Pencil, X } from 'lucide-react';
 
-export default function AdminProfileEditor({
+export default function CustomerProfileEditor({
     firstName,
     lastName,
     username,
@@ -18,7 +18,7 @@ export default function AdminProfileEditor({
                 <div>
                     <h2 className="text-lg font-semibold text-zinc-900">Profile Information</h2>
                     <p className="mt-1 text-sm text-zinc-500">
-                        As an admin, you can only change your first and last name here.
+                        Customers can edit their first and last name only.
                     </p>
                 </div>
 
@@ -68,13 +68,13 @@ export default function AdminProfileEditor({
                     <div>
                         <p className="text-sm font-medium text-zinc-500">Username</p>
                         <p className="mt-1 text-base font-medium text-zinc-900">{username}</p>
-                        <p className="mt-1 text-sm text-zinc-500">Username changes are not allowed here.</p>
+                        <p className="mt-1 text-sm text-zinc-500">Please contact an admin to change your username.</p>
                     </div>
 
                     <div>
                         <p className="text-sm font-medium text-zinc-500">Email Address</p>
                         <p className="mt-1 text-base text-zinc-900">{email}</p>
-                        <p className="mt-1 text-sm text-zinc-500">Email changes are not allowed here.</p>
+                        <p className="mt-1 text-sm text-zinc-500">Please contact an admin to change your email.</p>
                     </div>
 
                     <div>
@@ -118,11 +118,13 @@ export default function AdminProfileEditor({
                     <div>
                         <p className="text-sm font-medium text-zinc-500">Username</p>
                         <p className="mt-1 text-base font-medium text-zinc-900">{username}</p>
+                        <p className="mt-1 text-sm text-zinc-500">Please contact an admin to change your username.</p>
                     </div>
 
                     <div>
                         <p className="text-sm font-medium text-zinc-500">Email Address</p>
                         <p className="mt-1 text-base text-zinc-900">{email}</p>
+                        <p className="mt-1 text-sm text-zinc-500">Please contact an admin to change your email.</p>
                     </div>
 
                     <div>
