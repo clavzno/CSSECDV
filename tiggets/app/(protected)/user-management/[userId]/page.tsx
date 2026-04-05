@@ -58,13 +58,16 @@ export default async function ManageSingleUserPage({ params }: { params: any }) 
             .filter(Boolean)
     );
 
+    // replace this targetUser block
     const targetUser = {
         mongoId: targetMongoId,
         id: targetMongoId,
         name: `${targetUserRaw.firstName ?? ''} ${targetUserRaw.lastName ?? ''}`.trim() || targetUsername || 'Unknown',
         username: targetUsername || 'Unknown',
         email: targetEmail || 'No email provided',
-        role: targetRole
+        role: targetRole,
+        firstName: String(targetUserRaw.firstName || ''),
+        lastName: String(targetUserRaw.lastName || '')
     };
 
     const allTickets = await db.collection('tickets')
