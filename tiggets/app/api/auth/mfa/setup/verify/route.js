@@ -41,11 +41,25 @@ export async function POST(request) {
     const users = db.collection('users');
     const pendingRegistrations = db.collection('pendingRegistrations');
 
-    const challenge = await pendingRegistrations.findOne({
+    let challenge = await pendingRegistrations.findOne({
       setupTokenHash: getTokenHash(setupToken),
       usedAt: null,
       expiresAt: { $gt: new Date() },
     });
+
+    let challengeType = 'pendingRegistration';
+
+    if (!challenge) {
+      const invitedAccount = await users.findOne({
+        mfaSetupTokenHash: getTokenHash(setupToken),
+        accountStatus: 'mfa_pending',
+      });
+
+      if (invitedAccount) {
+        challenge = invitedAccount;
+        challengeType = 'user';
+      }
+    }
 
     if (!challenge || !challenge.tempSecretEncrypted) {
       return NextResponse.json({ error: 'MFA setup session is invalid or expired.' }, { status: 401 });
@@ -59,12 +73,21 @@ export async function POST(request) {
 
     if (!isCodeValid) {
       const attempts = (challenge.setupAttempts || 0) + 1;
-      await challenges.updateOne(
-        { _id: challenge._id },
-        {
-          $set: { setupAttempts: attempts, updatedAt: new Date() },
-        }
-      );
+      if (challengeType === 'pendingRegistration') {
+        await pendingRegistrations.updateOne(
+          { _id: challenge._id },
+          {
+            $set: { setupAttempts: attempts, updatedAt: new Date() },
+          }
+        );
+      } else {
+        await users.updateOne(
+          { _id: challenge._id },
+          {
+            $set: { setupAttempts: attempts, updatedAt: new Date() },
+          }
+        );
+      }
 
       return NextResponse.json({ error: 'Invalid authentication code.' }, { status: 401 });
     }
@@ -72,45 +95,70 @@ export async function POST(request) {
     const backupCodes = generateBackupCodes();
     const backupCodeHashes = backupCodes.map(hashBackupCode);
     const createdAt = new Date();
-    const finalUser = {
-      username: challenge.username,
-      usernameLower: challenge.usernameLower,
-      email: challenge.email,
-      emailLower: challenge.emailLower,
-      firstName: challenge.firstName,
-      lastName: challenge.lastName,
-      role: 'customer',
-      passwordHash: challenge.passwordHash,
-      securityQuestions: challenge.securityQuestions,
-      mfaEnabled: true,
-      mfaSecretEncrypted: challenge.tempSecretEncrypted,
-      backupCodeHashes,
-      failedLoginAttempts: 0,
-      lockedUntil: null,
-      lastLoginAttempt: null,
-      createdAt,
-      updatedAt: createdAt,
-    };
+    let userIdForLog = challenge._id;
 
-    const userInsertResult = await users.insertOne(finalUser);
+    if (challengeType === 'pendingRegistration') {
+      const finalUser = {
+        username: challenge.username,
+        usernameLower: challenge.usernameLower,
+        email: challenge.email,
+        emailLower: challenge.emailLower,
+        firstName: challenge.firstName,
+        lastName: challenge.lastName,
+        role: 'customer',
+        passwordHash: challenge.passwordHash,
+        securityQuestions: challenge.securityQuestions,
+        mfaEnabled: true,
+        mfaSecretEncrypted: challenge.tempSecretEncrypted,
+        backupCodeHashes,
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        lastLoginAttempt: null,
+        createdAt,
+        updatedAt: createdAt,
+      };
 
-    await pendingRegistrations.updateOne(
-      { _id: challenge._id },
-      {
-        $set: {
-          usedAt: new Date(),
-          finalUserId: userInsertResult.insertedId,
-          updatedAt: new Date(),
-        },
-      }
-    );
+      const userInsertResult = await users.insertOne(finalUser);
+      userIdForLog = userInsertResult.insertedId;
 
-    await pendingRegistrations.updateOne({ _id: challenge._id }, { $unset: { tempSecretEncrypted: '' } });
+      await pendingRegistrations.updateOne(
+        { _id: challenge._id },
+        {
+          $set: {
+            usedAt: new Date(),
+            finalUserId: userInsertResult.insertedId,
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      await pendingRegistrations.updateOne({ _id: challenge._id }, { $unset: { tempSecretEncrypted: '' } });
+    } else {
+      await users.updateOne(
+        { _id: challenge._id },
+        {
+          $set: {
+            mfaEnabled: true,
+            mfaSecretEncrypted: challenge.tempSecretEncrypted,
+            backupCodeHashes,
+            accountStatus: 'active',
+            invitationAcceptedAt: new Date(),
+            updatedAt: createdAt,
+          },
+          $unset: {
+            tempSecretEncrypted: '',
+            mfaSetupTokenHash: '',
+            inviteTokenHash: '',
+            inviteExpiresAt: '',
+          },
+        }
+      );
+    }
 
     cookieStore.delete('mfa_setup');
 
     await createLog({
-      userId: userInsertResult.insertedId.toString(),
+      userId: userIdForLog.toString(),
       actionType: 'MFA_SETUP_SUCCESS',
       details: `${challenge.username} completed account verification successfully.`,
       priorityLevel: 'info',

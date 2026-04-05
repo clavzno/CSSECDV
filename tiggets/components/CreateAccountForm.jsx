@@ -92,6 +92,10 @@ export default function CreateAccountForm({ inviteToken = '' }) {
   const passwordsMatch = form.confirmPassword.length > 0 && form.password === form.confirmPassword;
 
   const isInviteMode = inviteState.isInviteMode;
+  const requiresMfaSetup = useMemo(() => {
+    const role = String(form.role || '').toLowerCase();
+    return isInviteMode && (role === 'admin' || role === 'manager');
+  }, [form.role, isInviteMode]);
   const requiresName = useMemo(() => {
     const role = String(form.role || '').toLowerCase();
     return role === 'admin' || role === 'manager' || !isInviteMode;
@@ -305,7 +309,7 @@ export default function CreateAccountForm({ inviteToken = '' }) {
         password: form.password,
         confirmPassword: form.confirmPassword,
         acceptedTerms: form.acceptedTerms,
-        enableMFA: form.enableMFA,
+        enableMFA: form.enableMFA || requiresMfaSetup,
         inviteToken: inviteToken || '',
         securityQuestions: [
           { question: form.question1, answer: form.answer1 },
@@ -602,8 +606,17 @@ export default function CreateAccountForm({ inviteToken = '' }) {
         {fieldErrors.acceptedTerms && <p className="text-xs text-[#ff9f9f]">{fieldErrors.acceptedTerms}</p>}
 
         <label className="flex items-center gap-2 text-sm text-background">
-          <input type="checkbox" name="enableMFA" checked={form.enableMFA} onChange={updateField} className="h-4 w-4 accent-tiggets-lightgreen" />
-          Enable Multi-Factor Authentication for added security (recommended)
+          <input
+            type="checkbox"
+            name="enableMFA"
+            checked={requiresMfaSetup ? true : form.enableMFA}
+            onChange={updateField}
+            disabled={requiresMfaSetup}
+            className="h-4 w-4 accent-tiggets-lightgreen disabled:cursor-not-allowed"
+          />
+          {requiresMfaSetup
+            ? 'Multi-Factor Authentication is required for admin and manager invited accounts.'
+            : 'Enable Multi-Factor Authentication for added security (recommended)'}
         </label>
 
         <div className="flex justify-end gap-3 pt-2">

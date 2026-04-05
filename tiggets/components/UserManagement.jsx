@@ -9,7 +9,7 @@ import PendingUsersModal from '@/components/PendingUsersModal';
 
 import { useRouter } from 'next/navigation';
 
-export default function UserManagement({ role, users, session, pendingUsers }) {
+export default function UserManagement({ role, users, pendingUsers }) {
   // authorization is checked in page.tsx
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);

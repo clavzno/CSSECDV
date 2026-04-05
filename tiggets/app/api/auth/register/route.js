@@ -264,6 +264,7 @@ export async function POST(request) {
       }
 
       const invitedRole = String(invitedUser.role || '').trim().toLowerCase();
+      const inviteRequiresMfa = normalized.enableMFA || invitedRole === 'admin' || invitedRole === 'manager';
 
       if (
         (invitedRole === 'admin' || invitedRole === 'manager') &&
@@ -278,9 +279,55 @@ export async function POST(request) {
         );
       }
 
+      if (inviteRequiresMfa) {
+        const setupToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(setupToken).digest('hex');
+
+        await users.updateOne(
+          { _id: invitedUser._id },
+          {
+            $set: {
+              passwordHash: hashPassword(normalized.password),
+              securityQuestions: normalizeSecurityQuestions(normalized.securityQuestions),
+              mfaEnabled: false,
+              mfaSetupTokenHash: tokenHash,
+              accountStatus: 'mfa_pending',
+              invitationAcceptedAt: null,
+              updatedAt: new Date(),
+            },
+          }
+        );
+
+        const setupExpiresAt = inviteExpiresAt;
+
+        const cookieStore = await cookies();
+        cookieStore.set('mfa_setup', setupToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+          expires: setupExpiresAt,
+        });
+
+        await createLog({
+          userId: normalized.username,
+          actionType: 'REGISTER_SUCCESS',
+          details: `${normalized.username} started MFA setup for an invited ${invitedRole} account.`,
+          priorityLevel: 'info',
+        });
+
+        return NextResponse.json(
+          {
+            message: 'Account created successfully. Complete MFA setup to finish activation.',
+            nextStep: 'mfa_setup',
+            setupPath: '/MFASetup',
+          },
+          { status: 201 }
+        );
+      }
+
       const baseUpdate = buildBaseUserUpdate(normalized);
 
-      // do not touch mfa stuff someone else is handling that
       await users.updateOne(
         { _id: invitedUser._id },
         {
