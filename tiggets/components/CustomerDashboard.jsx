@@ -21,7 +21,7 @@ function TicketCard({ ticket }) {
         <Link
             href={ticketPath}
             aria-label={`View ticket ${rawId}`}
-            className="relative flex h-52 min-w-0 flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-blue-500 hover:ring-1 hover:ring-blue-500/60"
+            className="relative flex h-52 min-w-0 flex-col rounded-xl border border-zinc-200 bg-white px-6 py-6 shadow-sm transition hover:border-blue-500 hover:ring-1 hover:ring-blue-500/60"
         >
             <span
                 className={`absolute right-4 top-3 rounded-full border px-4 py-1 text-xs font-medium ${
@@ -31,11 +31,14 @@ function TicketCard({ ticket }) {
                 {status}
             </span>
 
-            <h2 className="mt-7 max-w-[90%] text-xl leading-tight font-medium text-zinc-800 sm:text-2xl">
+            <h2
+                title={title}
+                className="mt-8 max-w-[90%] truncate text-xl font-bold leading-tight text-zinc-800 sm:text-2xl"
+            >
                 {title}
             </h2>
 
-            <div className="mt-auto flex items-end justify-between gap-4 pt-6 text-zinc-800">
+            <div className="mt-auto flex items-end justify-between gap-4 pt-7 text-zinc-800">
                 <div>
                     <p className="text-[1.25rem] font-bold leading-none sm:text-[1.45rem]">Ticket ID</p>
                     <p className="text-lg leading-none sm:text-xl">{rawId}</p>

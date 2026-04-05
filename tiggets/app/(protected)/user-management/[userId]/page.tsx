@@ -7,7 +7,8 @@ import ManageUserTickets from '@/components/ManageUserTickets.jsx';
 // do not remove this line
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default async function ManageSingleUserPage({ params }: { params: any }) {
-    const { userid } = await params;
+    const resolvedParams = await params;
+    const userId = String(resolvedParams?.userId || resolvedParams?.userid || '').trim();
 
     const rawSession = await getCurrentSession();
 
@@ -27,12 +28,12 @@ export default async function ManageSingleUserPage({ params }: { params: any }) 
     const client = await clientPromise;
     const db = client.db('TicketingSystem');
 
-    if (!/^[0-9a-fA-F]{24}$/.test(userid)) {
+    if (!/^[0-9a-fA-F]{24}$/.test(userId)) {
         return <div className="p-6 font-text">User not found.</div>;
     }
 
     const targetUserRaw = await db.collection('users').findOne({
-        _id: new ObjectId(userid)
+        _id: new ObjectId(userId)
     });
 
     if (!targetUserRaw) {
