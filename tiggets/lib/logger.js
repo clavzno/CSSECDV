@@ -2,20 +2,29 @@ import clientPromise from '@/lib/mongodb';
 import crypto from 'crypto';
 import { ObjectId } from 'mongodb'; 
 
-// for admin role change and deletion
 export const LOG_EVENT_TYPES = {
+    // Admin & User Management (Original)
     ROLE_CHANGE: 'ROLE_CHANGE',
     BULK_ROLE_CHANGE: 'BULK_ROLE_CHANGE',
     USER_DELETION: 'USER_DELETION',
     BULK_USER_DELETION: 'BULK_USER_DELETION',
-    // Authentication events
-    PASSWORD_RESET_REQUEST: 'PASSWORD_RESET_REQUEST',
-    PASSWORD_RESET_ATTEMPT: 'PASSWORD_RESET_ATTEMPT',
-    PASSWORD_RESET_SUCCESS: 'PASSWORD_RESET_SUCCESS',
-    PASSWORD_RESET_FAIL: 'PASSWORD_RESET_FAIL',
+
+    // Password Management (Requirement 2.1.13)
     PASSWORD_CHANGE_ATTEMPT: 'PASSWORD_CHANGE_ATTEMPT',
     PASSWORD_CHANGE_SUCCESS: 'PASSWORD_CHANGE_SUCCESS',
     PASSWORD_CHANGE_FAIL: 'PASSWORD_CHANGE_FAIL',
+    PASSWORD_CHANGE_VALIDATION_FAIL: 'PASSWORD_CHANGE_VALIDATION_FAIL',
+
+    // Password Recovery (Forgot Password flow)
+    FORGOT_PWD_EMAIL_CHECK: 'FORGOT_PWD_EMAIL_CHECK',
+    FORGOT_PWD_ATTEMPT: 'FORGOT_PWD_ATTEMPT',
+    FORGOT_PWD_SUCCESS: 'FORGOT_PWD_SUCCESS',
+    FORGOT_PWD_IDENTITY_FAIL: 'FORGOT_PWD_IDENTITY_FAIL',
+    FORGOT_PWD_VALIDATION_FAIL: 'FORGOT_PWD_VALIDATION_FAIL',
+
+    // General Security & System Logs
+    ACCESS_DENIED: 'ACCESS_DENIED',
+    SYSTEM_ERROR: 'SYSTEM_ERROR',
 };
 
 export async function createLog({ 
@@ -30,7 +39,6 @@ export async function createLog({
     assignedTo = 'N/A', 
     replyTo = 'N/A',    
     attachments = [],
-    // --- NEW FIELDS ---
     editedAt = null,
     editedBy = null
 }) {
@@ -52,7 +60,6 @@ export async function createLog({
                 const userDoc = await db.collection('users').findOne({ _id: new ObjectId(stringUserId) });
                 if (userDoc && userDoc.username) {
                     displayUser = userDoc.username; 
-                    // Swap the editor ID for the username if they are the same person making the edit
                     if (displayEditor === stringUserId) {
                         displayEditor = userDoc.username;
                     }
@@ -75,7 +82,6 @@ export async function createLog({
             assignedTo: assignedTo,
             replyTo: replyTo,
             attachments: attachments,
-            // --- LOGGING THE NEW FIELDS ---
             editedAt: editedAt,
             editedBy: displayEditor
         };
