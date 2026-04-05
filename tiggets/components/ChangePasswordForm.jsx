@@ -3,6 +3,34 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+function getPasswordChecks(password) {
+  return {
+    minLength: password.length >= 15,
+    maxLength: password.length <= 64,
+    hasUpper: /[A-Z]/.test(password),
+    hasLower: /[a-z]/.test(password),
+    hasNumber: /\d/.test(password),
+    hasSpecial: /[^A-Za-z0-9]/.test(password),
+  };
+}
+
+function getStrengthScore(password) {
+  const checks = getPasswordChecks(password);
+  let score = 0;
+
+  if (password.length >= 8) score += 1;
+  if (checks.hasUpper && checks.hasLower) score += 1;
+  if (checks.hasNumber) score += 1;
+  if (checks.hasSpecial && checks.minLength && checks.maxLength) score += 1;
+
+  if (!password) {
+    return { score: 0, label: 'None' };
+  }
+
+  const labels = ['Weak', 'Fair', 'Good', 'Strong'];
+  return { score, label: labels[Math.max(0, score - 1)] };
+}
+
 export default function ChangePasswordForm() {
   const router = useRouter();
   const [questions, setQuestions] = useState([]);
@@ -11,6 +39,10 @@ export default function ChangePasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState({ type: "", message: "" });
   const [loading, setLoading] = useState(true);
+
+  const passwordChecks = getPasswordChecks(newPassword);
+  const strength = getStrengthScore(newPassword);
+  const passwordsMatch = confirmPassword.length > 0 && newPassword === confirmPassword;
 
   // Fetch the user's questions when the page loads
   useEffect(() => {
@@ -47,11 +79,11 @@ export default function ChangePasswordForm() {
     if (answers.some((ans) => ans.trim() === "")) {
       return setStatus({ type: "error", message: "Please answer all security questions." });
     }
-    if (newPassword.length < 8) {
-      return setStatus({ type: "error", message: "Password must be at least 8 characters long." });
-    }
-    if (newPassword !== confirmPassword) {
+    if (!passwordsMatch) {
       return setStatus({ type: "error", message: "New passwords do not match." });
+    }
+    if (strength.score < 3) {
+      return setStatus({ type: "error", message: "Password does not meet strength requirements." });
     }
 
     // 2. Send to Backend
@@ -120,13 +152,52 @@ export default function ChangePasswordForm() {
             <h2 className="text-lg font-semibold text-zinc-800 border-b pb-2">New Password</h2>
             <div>
               <label className="block text-sm font-medium text-zinc-700 mb-1">New Password</label>
-              <input
-                type="password"
-                required
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full rounded-md border border-zinc-300 p-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
+              <div className="space-y-2">
+                <input
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full rounded-md border border-zinc-300 p-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] text-zinc-700">Strength</p>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4].map((level) => (
+                      <div
+                        key={level}
+                        className={`h-1 w-4 rounded ${
+                          level <= strength.score
+                            ? strength.score === 1
+                              ? 'bg-red-500'
+                              : strength.score === 2
+                              ? 'bg-yellow-500'
+                              : strength.score === 3
+                              ? 'bg-blue-500'
+                              : 'bg-green-500'
+                            : 'bg-gray-300'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-zinc-700">{strength.label}</p>
+                  <div className="group relative">
+                    <button
+                      type="button"
+                      aria-label="Password requirements"
+                      className="grid h-4 w-4 place-items-center rounded-full border border-zinc-400 text-[10px] font-bold text-zinc-700"
+                    >
+                      i
+                    </button>
+                    <div className="pointer-events-none absolute left-1/2 top-6 z-20 hidden w-72 -translate-x-1/2 rounded-md bg-white p-2 text-[10px] leading-4 text-zinc-700 shadow-md border border-zinc-200 group-hover:block group-focus-within:block">
+                      <p>Minimum 15 characters in length</p>
+                      <p>Maximum 64 characters</p>
+                      <p>Must include uppercase and lowercase letters</p>
+                      <p>Must include numbers or special symbols</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-zinc-700 mb-1">Confirm New Password</label>
@@ -137,6 +208,11 @@ export default function ChangePasswordForm() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full rounded-md border border-zinc-300 p-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
+              {confirmPassword && (
+                <p className={`text-xs mt-1 ${passwordsMatch ? 'text-green-600' : 'text-red-600'}`}>
+                  {passwordsMatch ? 'Passwords match!' : 'Passwords do not match!'}
+                </p>
+              )}
             </div>
           </div>
 
@@ -151,7 +227,7 @@ export default function ChangePasswordForm() {
 
           <button
             type="submit"
-            disabled={questions.length === 0}
+            disabled={questions.length === 0 || !passwordsMatch || strength.score < 3}
             className="w-full rounded-md bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Update Password

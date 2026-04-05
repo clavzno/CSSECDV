@@ -76,13 +76,14 @@ export async function POST(request) {
             return NextResponse.json({ error: genericAuthError }, { status: 401 });
         }
 
-        // --- SUCCESS PATH ---
+        // --- SUCCESS PATH (legacy accounts without MFA yet) ---
         const hadRecentFails = user.failedLoginAttempts > 0;
         const lastLoginMsg = user.lastLoginAttempt
             ? `Your last login attempt was ${user.lastLoginAttempt.status} on ${new Date(user.lastLoginAttempt.date).toLocaleString()}`
             : 'Welcome! This is your first time logging in.';
 
-        // 4. Reset failed attempts
+        const cookieStore = await cookies();
+
         await usersCollection.updateOne(
             { _id: user._id },
             {
@@ -94,9 +95,8 @@ export async function POST(request) {
             }
         );
 
-        // 5. Generate Secure Session (Using user._id as requested)
         const sessionId = crypto.randomBytes(32).toString('hex');
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
         await db.collection('sessions').insertOne({
             sessionId,
@@ -106,8 +106,6 @@ export async function POST(request) {
             expiresAt
         });
 
-        // 6. Set HttpOnly Cookie
-        const cookieStore = await cookies();
         cookieStore.set('session', sessionId, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -116,7 +114,6 @@ export async function POST(request) {
             expires: expiresAt,
         });
 
-        // 7. Log Success
         await createLog({
             userId: user.username,
             actionType: 'LOGIN_SUCCESS',
@@ -124,7 +121,7 @@ export async function POST(request) {
             priorityLevel: hadRecentFails ? 'warning' : 'info'
         });
 
-        return NextResponse.json({ 
+        return NextResponse.json({
             message: 'Login successful',
             lastLoginMessage: lastLoginMsg,
             user: {

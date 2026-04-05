@@ -6,7 +6,7 @@ export function middleware(request) {
   const { pathname } = request.nextUrl;
 
   // 2. Define our public routes (Login, and eventually Registration)
-  const publicRoutes = ['/', '/register', '/CreateAccount', '/ForgotPassword'];
+  const publicRoutes = ['/', '/register', '/CreateAccount', '/ForgotPassword', '/MFASetup'];
   const isPublicRoute = publicRoutes.includes(pathname);
 
   // 3. If they are trying to access a protected page WITHOUT a session cookie
@@ -15,11 +15,8 @@ export function middleware(request) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  // 4. If they are logged in and try to go to the login page, 
-  // redirect them straight to their dashboard so they don't get stuck.
-  if (sessionCookie && isPublicRoute) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
+  // 4. Do not auto-redirect public routes based on cookie presence alone.
+  // A stale cookie can exist even when the DB session is invalid/expired.
 
   // 5. Allow the request to proceed
   return NextResponse.next();

@@ -21,7 +21,6 @@ export default function LoginForm() {
     setIsLoading(true);
 
     try {
-      // Send credentials to our native MongoDB login route
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -29,17 +28,12 @@ export default function LoginForm() {
       });
 
       const data = await res.json();
-
       if (!res.ok) {
         throw new Error(data.error || 'Login failed');
       }
 
       window.alert(data.lastLoginMessage);
-
-      // Save the user data (including role) locally so the Dashboard can read it
       localStorage.setItem('user', JSON.stringify(data.user));
-
-      // Redirect to the dashboard
       router.push('/dashboard');
       
     } catch (err) {

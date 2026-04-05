@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import clientPromise from '@/lib/mongodb';
 import { hashPassword } from '@/lib/crypto';
 import { createLog } from '@/lib/logger';
+import crypto from 'crypto';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_REGEX = /^[a-zA-Z0-9_.-]{3,24}$/;
@@ -31,6 +33,7 @@ export async function GET(request) {
     const client = await clientPromise;
     const db = client.db('TicketingSystem');
     const users = db.collection('users');
+    const pendingRegistrations = db.collection('pendingRegistrations');
 
     if (rawUsername) {
       const username = rawUsername.trim().toLowerCase();
@@ -39,7 +42,8 @@ export async function GET(request) {
       }
 
       const existing = await users.findOne({ usernameLower: username });
-      return NextResponse.json({ field: 'username', available: !existing }, { status: 200 });
+      const pendingExisting = await pendingRegistrations.findOne({ usernameLower: username, usedAt: null, expiresAt: { $gt: new Date() } });
+      return NextResponse.json({ field: 'username', available: !existing && !pendingExisting }, { status: 200 });
     }
 
     if (rawEmail) {
@@ -49,7 +53,8 @@ export async function GET(request) {
       }
 
       const existing = await users.findOne({ emailLower: email });
-      return NextResponse.json({ field: 'email', available: !existing }, { status: 200 });
+      const pendingExisting = await pendingRegistrations.findOne({ emailLower: email, usedAt: null, expiresAt: { $gt: new Date() } });
+      return NextResponse.json({ field: 'email', available: !existing && !pendingExisting }, { status: 200 });
     }
 
     return NextResponse.json({ error: 'Query must include username or email' }, { status: 400 });
@@ -70,6 +75,7 @@ export async function POST(request) {
       confirmPassword,
       securityQuestions,
       acceptedTerms,
+      enableMFA,
     } = await request.json();
 
     const normalized = {
@@ -82,6 +88,7 @@ export async function POST(request) {
       password: String(password || ''),
       confirmPassword: String(confirmPassword || ''),
       acceptedTerms: Boolean(acceptedTerms),
+      enableMFA: Boolean(enableMFA),
       securityQuestions: Array.isArray(securityQuestions) ? securityQuestions : [],
     };
 
@@ -128,23 +135,29 @@ export async function POST(request) {
     const client = await clientPromise;
     const db = client.db('TicketingSystem');
     const users = db.collection('users');
+    const pendingRegistrations = db.collection('pendingRegistrations');
 
     const [usernameExists, emailExists] = await Promise.all([
       users.findOne({ usernameLower: normalized.usernameLower }),
       users.findOne({ emailLower: normalized.emailLower }),
     ]);
 
-    if (usernameExists) {
+    const [pendingUsernameExists, pendingEmailExists] = await Promise.all([
+      pendingRegistrations.findOne({ usernameLower: normalized.usernameLower, usedAt: null, expiresAt: { $gt: new Date() } }),
+      pendingRegistrations.findOne({ emailLower: normalized.emailLower, usedAt: null, expiresAt: { $gt: new Date() } }),
+    ]);
+
+    if (usernameExists || pendingUsernameExists) {
       return NextResponse.json({ error: 'Username is unavailable.' }, { status: 409 });
     }
 
-    if (emailExists) {
+    if (emailExists || pendingEmailExists) {
       return NextResponse.json({ error: 'Email address is already in use.' }, { status: 409 });
     }
 
     const createdAt = new Date();
 
-    const newUser = {
+    const pendingRegistration = {
       username: normalized.username,
       usernameLower: normalized.usernameLower,
       email: normalized.email,
@@ -157,26 +170,102 @@ export async function POST(request) {
         question: String(item.question).trim(),
         answerHash: hashPassword(String(item.answer).trim().toLowerCase()),
       })),
-      failedLoginAttempts: 0,
-      lockedUntil: null,
-      lastLoginAttempt: null,
+      enableMFA: normalized.enableMFA,
       createdAt,
       updatedAt: createdAt,
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
     };
 
-    const result = await users.insertOne(newUser);
+    const result = await pendingRegistrations.insertOne(pendingRegistration);
+
+    // If MFA is not enabled, create the user directly
+    if (!normalized.enableMFA) {
+      const finalUser = {
+        username: normalized.username,
+        usernameLower: normalized.usernameLower,
+        email: normalized.email,
+        emailLower: normalized.emailLower,
+        firstName: normalized.firstName,
+        lastName: normalized.lastName,
+        role: 'customer',
+        passwordHash: hashPassword(normalized.password),
+        securityQuestions: normalized.securityQuestions.map((item) => ({
+          question: String(item.question).trim(),
+          answerHash: hashPassword(String(item.answer).trim().toLowerCase()),
+        })),
+        mfaEnabled: false,
+        createdAt,
+        updatedAt: createdAt,
+      };
+
+      const userResult = await users.insertOne(finalUser);
+
+      // Mark pending registration as used
+      await pendingRegistrations.updateOne(
+        { _id: result.insertedId },
+        {
+          $set: {
+            usedAt: new Date(),
+            finalUserId: userResult.insertedId,
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      await createLog({
+        userId: normalized.username,
+        actionType: 'REGISTER_SUCCESS',
+        details: `${normalized.username} completed account registration without MFA.`,
+        priorityLevel: 'info',
+      });
+
+      return NextResponse.json(
+        {
+          message: 'Account created successfully.',
+          nextStep: 'account_created',
+          redirectPath: '/',
+        },
+        { status: 201 }
+      );
+    }
+
+    // If MFA is enabled, proceed with MFA setup
+    const setupToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(setupToken).digest('hex');
+    const setupExpiresAt = pendingRegistration.expiresAt;
+
+    await pendingRegistrations.updateOne(
+      { _id: result.insertedId },
+      {
+        $set: {
+          setupTokenHash: tokenHash,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    const cookieStore = await cookies();
+    cookieStore.set('mfa_setup', setupToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      expires: setupExpiresAt,
+    });
 
     await createLog({
       userId: normalized.username,
       actionType: 'REGISTER_SUCCESS',
-      details: `${normalized.username} created a new customer account.`,
+      details: `${normalized.username} started account verification for a new customer account.`,
       priorityLevel: 'info',
     });
 
     return NextResponse.json(
       {
         message: 'Account created successfully.',
-        userId: result.insertedId,
+        nextStep: 'mfa_setup',
+        setupPath: '/MFASetup',
       },
       { status: 201 }
     );

@@ -62,6 +62,7 @@ export default function CreateAccountForm() {
     question3: '',
     answer3: '',
     acceptedTerms: false,
+    enableMFA: false,
   });
 
   const [usernameAvailable, setUsernameAvailable] = useState(null);
@@ -205,6 +206,7 @@ export default function CreateAccountForm() {
         password: form.password,
         confirmPassword: form.confirmPassword,
         acceptedTerms: form.acceptedTerms,
+        enableMFA: form.enableMFA,
         securityQuestions: [
           { question: form.question1, answer: form.answer1 },
           { question: form.question2, answer: form.answer2 },
@@ -221,6 +223,18 @@ export default function CreateAccountForm() {
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Registration failed.');
+      }
+
+      if (data.nextStep === 'mfa_setup') {
+        setSuccessMessage('Account setup started. Redirecting to verification...');
+        setTimeout(() => router.push(data.setupPath || '/MFASetup'), 900);
+        return;
+      }
+
+      if (data.nextStep === 'account_created') {
+        setSuccessMessage('Account created successfully. Redirecting to login...');
+        setTimeout(() => router.push('/'), 900);
+        return;
       }
 
       setSuccessMessage('Account created successfully. Redirecting to login...');
@@ -401,6 +415,11 @@ export default function CreateAccountForm() {
           I have accepted the <a href="#" className="underline">Terms and Conditions.</a>
         </label>
         {fieldErrors.acceptedTerms && <p className="text-xs text-[#ff9f9f]">{fieldErrors.acceptedTerms}</p>}
+
+        <label className="flex items-center gap-2 text-sm text-background">
+          <input type="checkbox" name="enableMFA" checked={form.enableMFA} onChange={updateField} className="h-4 w-4 accent-tiggets-lightgreen" />
+          Enable Multi-Factor Authentication for added security (recommended)
+        </label>
 
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" onClick={() => router.push('/')} className="rounded bg-gray-400 px-5 py-2 text-sm font-semibold text-white transition hover:bg-gray-500 hover:cursor-pointer">Cancel</button>
