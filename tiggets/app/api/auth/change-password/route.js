@@ -34,14 +34,31 @@ function validatePassword(password) {
 export async function GET() {
     try {
         const session = await getCurrentSession();
-        if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        
+        // --- NEW: Log Access Control Failure (Requirement 2.4.7) ---
+        if (!session) {
+            await createLog({
+                userId: 'Unauthenticated',
+                actionType: 'ACCESS_DENIED',
+                details: 'Unauthorized attempt to access change-password questions.',
+                priorityLevel: 'warning'
+            });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
         const client = await clientPromise;
         const db = client.db('TicketingSystem');
 
         const user = await db.collection('users').findOne({ _id: new ObjectId(session.userId) });
-                if (!user) {
-                        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        
+        if (!user || !user.securityQuestions) {
+            await createLog({
+                userId: session.userId,
+                actionType: 'SYSTEM_ERROR',
+                details: `Security questions missing for user session: ${session.userId}`,
+                priorityLevel: 'critical'
+            });
+            return NextResponse.json({ error: 'User or questions not found' }, { status: 404 });
         }
 
                 // Only send question text to the frontend, never answer hashes.
@@ -51,7 +68,7 @@ export async function GET() {
 
         await createLog({
           userId: session.userId,
-          eventType: 'PASSWORD_CHANGE_ATTEMPT',
+          actionType: 'PASSWORD_CHANGE_ATTEMPT',
           details: `${user.username} accessed the change password page.`,
           priorityLevel: 'info',
         });
@@ -73,17 +90,40 @@ export async function GET() {
 export async function POST(request) {
     try {
         const session = await getCurrentSession();
-        if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        
+        // --- NEW: Log Access Control Failure (Requirement 2.4.7) ---
+        if (!session) {
+            await createLog({
+                userId: 'Unauthenticated',
+                actionType: 'ACCESS_DENIED',
+                details: 'Unauthorized attempt to POST a password change.',
+                priorityLevel: 'critical'
+            });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
         const { answers, newPassword, mfaCode, backupCode } = await request.json();
 
+        // Audit Log for Missing Fields (Requirement 2.4.5)
         if (!newPassword) {
+            await createLog({
+                userId: session.userId,
+                actionType: 'PASSWORD_CHANGE_VALIDATION_FAIL',
+                details: 'Password change failed: Missing new password.',
+                priorityLevel: 'warning'
+            });
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        // Validate password strength
+        // Audit Log for Password Policy Failure (Requirement 2.4.5)
         const passwordValidation = validatePassword(newPassword);
         if (!passwordValidation.isValid) {
+            await createLog({
+                userId: session.userId,
+                actionType: 'PASSWORD_CHANGE_VALIDATION_FAIL',
+                details: `Password change failed: New password does not meet complexity requirements.`,
+                priorityLevel: 'warning'
+            });
             return NextResponse.json({ error: 'Password does not meet policy requirements.' }, { status: 400 });
         }
 
@@ -160,7 +200,6 @@ export async function POST(request) {
             }
         }
 
-        // If answers are correct, hash the new password and save it
         const newPasswordHash = hashPassword(newPassword);
 
         await db.collection('users').updateOne(
@@ -170,7 +209,7 @@ export async function POST(request) {
 
         await createLog({
           userId: session.userId,
-          eventType: 'PASSWORD_CHANGE_SUCCESS',
+          actionType: 'PASSWORD_CHANGE_SUCCESS',
           details: `${user.username} successfully changed their password.`,
           priorityLevel: 'info',
         });
