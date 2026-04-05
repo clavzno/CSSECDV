@@ -454,13 +454,23 @@ export default function UserManagement({ role, users, pendingUsers }) {
                     <td className="py-2 px-6 text-center text-zinc-800">{user.active}</td>
                     <td className="py-2 px-6 text-center text-zinc-800">{user.all}</td>
 
+
                     <td className="py-2 px-6 text-center">
+                      {/** Admins can't edit other admin info */}
                       {user.isCurrentUser ? (
-                        <div className="flex justify-center">
-                          <span className="mt-1 inline-flex items-center rounded-full bg-blue-50 px-5 py-1.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
-                            You
-                          </span>
-                        </div>
+                        isAdmin ? (
+                          <Link href={`/user-management/${user.mongoId}`} className="flex justify-center">
+                            <button className="mt-1 inline-flex items-center rounded-full bg-blue-50 px-5 py-1.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10 cursor-pointer hover:bg-blue-100 transition-colors">
+                              You
+                            </button>
+                          </Link>
+                        ) : (
+                          <div className="flex justify-center">
+                            <span className="mt-1 inline-flex items-center rounded-full bg-blue-50 px-5 py-1.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                              You
+                            </span>
+                          </div>
+                        )
                       ) : user.role?.toLowerCase() !== 'admin' ? (
                         <Link href={`/user-management/${user.mongoId}`}>
                           <button className="bg-tiggets-lightgreen hover:opacity-90 text-white px-5 py-1.5 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer">

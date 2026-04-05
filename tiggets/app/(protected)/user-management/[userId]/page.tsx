@@ -58,7 +58,10 @@ export default async function ManageSingleUserPage({ params }: { params: any }) 
             .filter(Boolean)
     );
 
-    // replace this targetUser block
+    const isTargetAdmin = targetRole === 'admin';
+    const isOwnProfile = String(session.userId) === targetMongoId;
+    const canEditProfile = session.role?.toLowerCase() === 'admin' && (!isTargetAdmin || isOwnProfile);
+
     const targetUser = {
         mongoId: targetMongoId,
         id: targetMongoId,
@@ -67,7 +70,10 @@ export default async function ManageSingleUserPage({ params }: { params: any }) 
         email: targetEmail || 'No email provided',
         role: targetRole,
         firstName: String(targetUserRaw.firstName || ''),
-        lastName: String(targetUserRaw.lastName || '')
+        lastName: String(targetUserRaw.lastName || ''),
+        canEditProfile,
+        isOwnProfile,
+        isTargetAdmin
     };
 
     const allTickets = await db.collection('tickets')

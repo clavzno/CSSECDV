@@ -38,6 +38,7 @@ export default function ManageUserTickets({
 
   const isAdmin = String(role || '').toLowerCase() === 'admin';
   const isManager = String(targetUser?.role || '').toLowerCase() === 'manager';
+  const canEditProfile = Boolean(targetUser?.canEditProfile);
 
   useEffect(() => {
     setProfileForm({
@@ -112,6 +113,11 @@ export default function ManageUserTickets({
   }
 
   async function saveProfileChanges() {
+    if (!canEditProfile) {
+      alert('You are not allowed to edit this profile.');
+      return;
+    }
+
     const trimmedPayload = {
       username: profileForm.username.trim(),
       email: profileForm.email.trim(),
@@ -179,12 +185,12 @@ export default function ManageUserTickets({
       </div>
 
       {/** User Profile Section */}
-      {isAdmin && (
+      {canEditProfile && (
         <div className="mb-8 rounded-md border border-zinc-300 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-border-gray px-6 py-4">
             <h2 className="text-xl font-semibold text-black">User Profile</h2>
 
-            {!isEditingProfile && (
+            {canEditProfile && !isEditingProfile && (
               <button
                 type="button"
                 onClick={() => setIsEditingProfile(true)}
@@ -195,7 +201,7 @@ export default function ManageUserTickets({
               </button>
             )}
 
-            {isEditingProfile && (
+            {canEditProfile && isEditingProfile && (
               <div className="flex items-center gap-2">
                 <button
                   type="button"
