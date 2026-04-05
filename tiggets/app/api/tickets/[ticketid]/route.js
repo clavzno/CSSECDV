@@ -16,7 +16,11 @@ export async function PUT(request, { params }) {
         const updates = await request.json(); 
         
         const incomingReplyId = updates.replyId || 'N/A';
+        
+        // --- SECURE FILE LOGGING ---
+        // Keep the raw data for the tickets collection, but strip out the base64 string for the logs!
         const incomingAttachments = updates.attachments || [];
+        const safeLogAttachments = incomingAttachments.map(att => att.name || att || 'Unknown File');
 
         // --- ERROR CHECK: Validation ---
         if (Object.keys(updates).length === 0 || (updates.status !== undefined && updates.status.trim() === '')) {
@@ -29,7 +33,7 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'error',
                 assignedTo: 'N/A', 
                 replyTo: incomingReplyId,
-                attachments: incomingAttachments
+                attachments: safeLogAttachments // <-- UPDATED
             });
             return NextResponse.json({ error: 'Invalid update data' }, { status: 400 });
         }
@@ -53,7 +57,7 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'critical',
                 assignedTo: currentAssignedManager,
                 replyTo: incomingReplyId,
-                attachments: incomingAttachments
+                attachments: safeLogAttachments // <-- UPDATED
             });
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
@@ -118,7 +122,7 @@ export async function PUT(request, { params }) {
                 timestamp: new Date(),
                 editedAt: null,
                 editedBy: null,
-                attachments: incomingAttachments 
+                attachments: incomingAttachments // <-- Keep the full data payload for the DB ticket object
             };
 
             await db.collection('tickets').updateOne(
@@ -137,7 +141,7 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
                 replyTo: newReplyId, 
-                attachments: incomingAttachments
+                attachments: safeLogAttachments // <-- UPDATED
             });
 
             return NextResponse.json({ message: 'Reply added successfully', reply: newReply }, { status: 200 });
@@ -209,10 +213,9 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
                 replyTo: 'N/A', 
-                attachments: incomingAttachments
+                attachments: safeLogAttachments // <-- UPDATED
             });
         } else if (updates.replyId) {
-            // --- NEW: Logging edited fields for replies ---
             await createLog({
                 userId: session.userId,
                 actionType: 'TICKET_EDITED',
@@ -221,7 +224,7 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
                 replyTo: updates.replyId, 
-                attachments: incomingAttachments,
+                attachments: safeLogAttachments, // <-- UPDATED
                 editedAt: actionTimestamp, 
                 editedBy: session.userId
             });
@@ -234,10 +237,9 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'info',
                 assignedTo: updates.assignedTo, 
                 replyTo: 'N/A', 
-                attachments: incomingAttachments
+                attachments: safeLogAttachments // <-- UPDATED
             });
         } else {
-            // --- NEW: Logging edited fields for the starting post ---
             await createLog({
                 userId: session.userId,
                 actionType: 'TICKET_EDITED',
@@ -246,8 +248,7 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
                 replyTo: 'N/A', 
-                attachments: incomingAttachments,
-                // Only pass the edit fields if the body or subject was actually changed
+                attachments: safeLogAttachments, // <-- UPDATED
                 ...(updates.body || updates.subject ? { editedAt: actionTimestamp, editedBy: session.userId } : {})
             });
         }

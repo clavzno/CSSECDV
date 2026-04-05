@@ -88,7 +88,7 @@ function mapReply(reply: any): TicketReplyView {
         content: String(reply?.message ?? ''),
         attachment:
             Array.isArray(reply?.attachments) && reply.attachments.length > 0
-                ? String(reply.attachments[0])
+                ? (reply.attachments[0])
                 : null,
         isEdited: !!reply?.editedAt, 
         editDate: reply?.editedAt ? formatDate(reply?.editedAt) : undefined,
@@ -109,7 +109,7 @@ function mapTicketForView(ticket: any): TicketViewData {
         assignedToName: String(ticket?.assignedTo ?? 'unassigned'),
         attachment:
             Array.isArray(ticket?.attachments) && ticket?.attachments.length > 0
-                ? String(ticket.attachments[0])
+                ? (ticket.attachments[0])
                 : null,
         replies: Array.isArray(ticket?.replies) ? ticket.replies.map(mapReply) : [],
     };

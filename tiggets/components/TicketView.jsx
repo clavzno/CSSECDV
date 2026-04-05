@@ -32,7 +32,6 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
   const isManager = normalizedRole === "manager";
   const isAdmin = normalizedRole === "admin";
   const isStaff = isManager || isAdmin; 
-  // --- REVERTED: Strictly managers only ---
   const canModifyTicket = isManager;
 
   const activeTicket = ticket ?? {
@@ -157,11 +156,27 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
     }
   };
 
-  const handleReplyFilesSelected = (event) => {
+  // --- UPDATED: Convert the selected files to Base64 objects ---
+  const handleReplyFilesSelected = async (event) => {
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
 
-    setReplyAttachments((prev) => [...prev, ...files.map((file) => file.name)]);
+    const newAttachments = await Promise.all(
+      files.map((file) => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve({
+              name: file.name,
+              data: reader.result, 
+            });
+          };
+          reader.readAsDataURL(file);
+        });
+      })
+    );
+
+    setReplyAttachments((prev) => [...prev, ...newAttachments]);
     event.target.value = "";
   };
 
@@ -224,6 +239,25 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
         ? (activeTicket.assignedToName || normalizedAssignedTo) 
         : "None";
 
+  // --- HELPER: Safely extract attachment properties ---
+  const renderAttachment = (attachment) => {
+    if (!attachment) return null;
+    const isObj = typeof attachment === 'object';
+    const name = isObj ? attachment.name : attachment;
+    const dataUrl = isObj && attachment.data ? attachment.data : '#';
+
+    return (
+      <a
+        href={dataUrl}
+        download={name}
+        className="inline-flex cursor-pointer items-center gap-2 rounded border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-600 transition-colors hover:bg-zinc-50"
+      >
+        {name}
+        <Download size={14} className="text-zinc-400" />
+      </a>
+    );
+  };
+
   return (
     <main className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
       <section className="space-y-6">
@@ -254,15 +288,8 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
             <p className="leading-relaxed text-zinc-700">{activeTicket.description}</p>
           </div>
 
-          {activeTicket.attachment && (
-            <button
-              type="button"
-              className="flex items-center gap-2 rounded border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 transition hover:bg-zinc-50 hover:cursor-pointer"
-            >
-              <Download className="h-4 w-4" />
-              <span>{activeTicket.attachment}</span>
-            </button>
-          )}
+          {/* MAIN TICKET ATTACHMENT */}
+          {renderAttachment(activeTicket.attachment)}
 
           <div className="flex justify-end text-sm text-zinc-500">
             <div>
@@ -289,7 +316,6 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
                         )}
                       </div>
 
-                      {/* REVERTED: Removed the isAdmin bypass so only the author can modify */}
                       {(canModifyTicket && reply.authorId === currentUserId) && (
                         <div className="relative">
                           <button
@@ -327,12 +353,9 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
                     <p className="leading-relaxed text-zinc-700">{reply.content}</p>
                   </div>
 
-                  {reply.attachment && (
-                    <div className="inline-flex cursor-pointer items-center gap-2 rounded border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-600 transition-colors hover:bg-zinc-50">
-                      {reply.attachment}
-                      <Download size={14} className="text-zinc-400" />
-                    </div>
-                  )}
+                  {/* REPLY ATTACHMENTS */}
+                  {renderAttachment(reply.attachment)}
+                  
                 </div>
               ))}
             </div>
@@ -370,12 +393,13 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
                     Click to upload file...
                   </button>
 
-                  {replyAttachments.map((attachmentName, index) => (
+                  {/* DRAFT ATTACHMENTS */}
+                  {replyAttachments.map((attachment, index) => (
                     <div
-                      key={`${attachmentName}-${index}`}
+                      key={`${attachment.name}-${index}`}
                       className="flex items-center gap-2 rounded bg-gray-100 px-3 py-1 text-xs text-zinc-600"
                     >
-                      {attachmentName}
+                      {attachment.name}
                       <button
                         type="button"
                         onClick={() => removeReplyAttachment(index)}
@@ -389,7 +413,7 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
                 <button
                   type="button"
                   onClick={handlePostReply}
-                  disabled={!replyText.trim()}
+                  disabled={!replyText.trim() && replyAttachments.length === 0}
                   className="rounded-lg bg-tiggets-lightgreen px-6 py-2 font-medium text-white transition hover:bg-[#2b4a3c] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Post
