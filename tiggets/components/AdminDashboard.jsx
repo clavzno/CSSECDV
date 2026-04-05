@@ -38,15 +38,9 @@ export default function AdminDashboard({ session, role, tickets }) {
                     </div>
                 </div>
                 <div className="bg-white rounded-lg shadow-sm p-6 min-h-50 border border-border-gray flex flex-col">
-                    <h2 className="text-lg font-semibold mb-4">Recently Opened</h2>
+                    <h2 className="text-lg font-semibold mb-4">Unread Critical Logs</h2>
                     <div className="w-full flex-1 bg-div-gray rounded flex items-center justify-center text-sm opacity-60">
-                        Number Unread Critical Logs
-                    </div>
-                </div>
-                <div className="bg-white rounded-lg shadow-sm p-6 min-h-50 border border-border-gray flex flex-col">
-                    <h2 className="text-lg font-semibold mb-4">Recently Opened</h2>
-                    <div className="w-full flex-1 bg-div-gray rounded flex items-center justify-center text-sm opacity-60">
-                        Number Open/Pending/Processing Tickets
+                        Number Error/Warning/Critical Logs
                     </div>
                 </div>
             </div>

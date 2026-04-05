@@ -11,9 +11,14 @@ export default async function SettingsPage() {
     redirect('/');
   }
 
+  const safeSession = {
+    userId: String(session.userId),
+    role: String(session.role),
+  };
+
   return (
     <main className="ml-56 min-h-screen bg-background p-6">
-      <Settings session={session} />
+      <Settings session={safeSession} />
     </main>
   );
 }

@@ -1,22 +1,136 @@
 "use client";
-import { useState } from 'react';
-import { Search, ArrowUpDown, Filter, X } from 'lucide-react';
 import Link from 'next/link';
+import { useState } from 'react';
+import { Search, Filter, X } from 'lucide-react';
+import RoleChangeModal from '@/components/RoleChangeModal';
+import DeleteUsersModal from '@/components/DeleteUsersModal';
 
-/* const mockUsers = [
-  { id: '#0142067', name: 'John Smith', email: 'email@edu.com', role: 'admin', active: 'N/A', all: 'N/A' },
-  { id: '#0142068', name: 'George Droid', email: 'georgedroid@edu.com', role: 'customer', active: 2, all: 2 },
-  { id: '#0142069', name: 'Charlie Kirk', email: 'charliekirk@edu.com', role: 'manager', active: 3, all: 3 },
-  { id: '#0142070', name: 'Jacobi Dream', email: 'jacobidream@edu.com', role: 'manager', active: 4, all: 4 },
-]; */
+import { useRouter } from 'next/navigation';
 
-// user
 export default function UserManagement({ role, session, users }) {
   // authorization is checked in page.tsx
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [roleFilter, setRoleFilter] = useState('');
   const [sortBy, setSortBy] = useState('numerical');
+  const [selectedUsers, setSelectedUsers] = useState(new Set());
+  const [showRoleChangeModal, setShowRoleChangeModal] = useState(false);
+  const [showDeleteUsersModal, setShowDeleteUsersModal] = useState(false);
+  const [selectedRole, setSelectedRole] = useState('');
+
+  const isAdmin = String(role || '').toLowerCase() === 'admin';
+
+  function toggleUser(id) {
+    if (!isAdmin) return;
+
+    setSelectedUsers((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  }
+
+  function toggleAll(users) {
+    if (!isAdmin) return;
+
+    if (selectedUsers.size === users.length) {
+      setSelectedUsers(new Set());
+    } else {
+      setSelectedUsers(new Set(users.map((u) => u.id)));
+    }
+  }
+
+  function openRoleChangeModal() {
+    if (!isAdmin || selectedUsers.size === 0) return;
+    setSelectedRole('');
+    setShowRoleChangeModal(true);
+  }
+
+  function closeRoleChangeModal() {
+    setShowRoleChangeModal(false);
+    setSelectedRole('');
+  }
+
+  async function handleConfirmRoleChange() {
+    if (!selectedRole || selectedUsers.size === 0) return;
+
+    try {
+      setIsSubmitting(true);
+
+      const response = await fetch('/api/user-management/change-role', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userIds: Array.from(selectedUsers),
+          role: selectedRole,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to change role.');
+      }
+
+      setSelectedUsers(new Set());
+      closeRoleChangeModal();
+      router.refresh();
+    } catch (error) {
+      console.error('Change role request failed:', error);
+      alert(error.message || 'Failed to change role.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function openDeleteUsersModal() {
+    if (!isAdmin || selectedUsers.size === 0) return;
+    setShowDeleteUsersModal(true);
+  }
+
+  function closeDeleteUsersModal() {
+    setShowDeleteUsersModal(false);
+  }
+
+  async function handleConfirmDeleteUsers() {
+    if (selectedUsers.size === 0) return;
+
+    try {
+      setIsSubmitting(true);
+
+      const response = await fetch('/api/user-management/delete-users', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userIds: Array.from(selectedUsers),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to delete users.');
+      }
+
+      setSelectedUsers(new Set());
+      closeDeleteUsersModal();
+      router.refresh();
+    } catch (error) {
+      console.error('Delete users request failed:', error);
+      alert(error.message || 'Failed to delete users.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   const clearFilters = () => {
     setRoleFilter('');
@@ -24,9 +138,9 @@ export default function UserManagement({ role, session, users }) {
     setSearchTerm('');
   };
 
-  const dataToUse = users; // || mockUsers
+  const dataToUse = users;
 
-  let processedUsers = dataToUse.filter(user => {
+  let processedUsers = dataToUse.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -49,16 +163,12 @@ export default function UserManagement({ role, session, users }) {
 
   return (
     <div className="w-full font-text text-foreground">
-
       <div className="w-full mb-8">
-        {/* Header */}
         <h1 className="text-3xl font-bold w-full">User Management</h1>
       </div>
 
       <div className="bg-[#e2e2e2] pt-8 flex flex-col min-h-150 rounded-t-md shadow-sm border border-zinc-300">
-
         <div className="flex flex-col sm:flex-row items-center gap-6 px-6 mb-4 w-full">
-
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center justify-center gap-3 bg-white border px-4 py-2 rounded-sm text-sm font-medium transition-all shadow-sm cursor-pointer w-full sm:w-35 ${showFilters ? 'border-[#3b5949] text-[#3b5949]' : 'border-zinc-300 text-zinc-400'}`}
@@ -111,9 +221,36 @@ export default function UserManagement({ role, session, users }) {
 
         <div className="w-full mt-2">
           <div className="rounded-t-lg overflow-hidden border-y border-border-gray shadow-sm bg-background">
+            {isAdmin && selectedUsers.size > 0 && (
+              <div className="px-6 py-4 flex gap-3 border-b border-border-gray bg-white">
+                <button
+                  onClick={openRoleChangeModal}
+                  className="bg-yellow-500 hover:opacity-90 text-zinc-800 px-5 py-1.5 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer"
+                >
+                  Change Role
+                </button>
+
+                <button
+                  onClick={openDeleteUsersModal}
+                  className="bg-red-600 hover:opacity-90 text-[#F6F6F6] px-5 py-1.5 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer"
+                >
+                  Delete Selected ({selectedUsers.size})
+                </button>
+              </div>
+            )}
+
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="bg-div-gray border-b border-border-gray">
+                  {isAdmin && (
+                    <th className="py-4 px-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.size === processedUsers.length && processedUsers.length > 0}
+                        onChange={() => toggleAll(processedUsers)}
+                      />
+                    </th>
+                  )}
                   <th className="py-4 px-6 font-semibold">User ID #</th>
                   <th className="py-4 px-6 font-semibold">Username</th>
                   <th className="py-4 px-6 font-semibold">Name</th>
@@ -127,41 +264,78 @@ export default function UserManagement({ role, session, users }) {
               <tbody>
                 {processedUsers.map((user) => (
                   <tr key={user.id} className="border-b border-border-gray hover:bg-div-gray/30 transition-colors bg-white">
-                    <td className="py-4 px-6 font-medium text-zinc-800">{user.id}</td>
-                    <th className="py-4 px-6 font-semibold">{user.username}</th>
-                    <td className="py-4 px-6 text-zinc-800">{user.name}</td>
-                    <td className="py-4 px-6 text-zinc-800">{user.email}</td>
-                    <td className="py-4 px-6 text-zinc-800 capitalize">{user.role}</td>
-                    <td className="py-4 px-6 text-center text-zinc-800">{user.active}</td>
-                    <td className="py-4 px-6 text-center text-zinc-800">{user.all}</td>
-                    <td className="py-4 px-6 text-center">
+                    {isAdmin && (
+                      <td className="py-2 px-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedUsers.has(user.id)}
+                          onChange={() => toggleUser(user.id)}
+                        />
+                      </td>
+                    )}
 
-                      {/* DB LOGIC: Only render the Manage button if the user is NOT an admin */}
-                      {user.role?.toLowerCase() !== 'admin' && (
+                    <td className="py-2 px-6 font-medium text-zinc-800">{user.id}</td>
+                    <th className="py-2 px-6 font-semibold">{user.username}</th>
+                    <td className="py-2 px-6 text-zinc-800">{user.name}</td>
+                    <td className="py-2 px-6 text-zinc-800">{user.email}</td>
+                    <td className="py-2 px-6 text-zinc-800 capitalize">{user.role}</td>
+                    <td className="py-2 px-6 text-center text-zinc-800">{user.active}</td>
+                    <td className="py-2 px-6 text-center text-zinc-800">{user.all}</td>
 
+                    <td className="py-2 px-6 text-center">
+                      {user.isCurrentUser ? (
+                        <div className="flex justify-center">
+                          <span className="mt-1 inline-flex items-center rounded-full bg-blue-50 px-5 py-1.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                            You
+                          </span>
+                        </div>
+                      ) : user.role?.toLowerCase() !== 'admin' ? (
                         <Link href={`/user-management/${user.id.replace('#', '')}`}>
                           <button className="bg-tiggets-lightgreen hover:opacity-90 text-white px-5 py-1.5 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer">
                             Manage
                           </button>
                         </Link>
-                      )}
-
+                      ) : null}
                     </td>
                   </tr>
                 ))}
+
                 {processedUsers.length === 0 && (
                   <tr className="bg-white">
-                    <td colSpan="7" className="py-8 text-center text-zinc-500 italic border-b border-border-gray">
+                    <td colSpan={isAdmin ? 9 : 8} className="py-8 text-center text-zinc-500 italic border-b border-border-gray">
                       No users match your current filters.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
+
             <div className="text-center py-6 text-sm font-medium bg-div-gray text-foreground border-t border-border-gray" />
           </div>
         </div>
       </div>
+
+      {isAdmin && (
+        <RoleChangeModal
+          isOpen={showRoleChangeModal}
+          onClose={closeRoleChangeModal}
+          onConfirm={handleConfirmRoleChange}
+          selectedCount={selectedUsers.size}
+          selectedRole={selectedRole}
+          setSelectedRole={setSelectedRole}
+          isSubmitting={isSubmitting}
+        />
+      )}
+
+      {isAdmin && (
+        <DeleteUsersModal
+          isOpen={showDeleteUsersModal}
+          onClose={closeDeleteUsersModal}
+          onConfirm={handleConfirmDeleteUsers}
+          selectedCount={selectedUsers.size}
+          isSubmitting={isSubmitting}
+        />
+      )}
     </div>
   );
 }
