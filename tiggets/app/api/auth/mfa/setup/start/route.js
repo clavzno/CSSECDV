@@ -24,19 +24,34 @@ export async function POST() {
     const client = await clientPromise;
     const db = client.db('TicketingSystem');
     const pendingRegistrations = db.collection('pendingRegistrations');
+    const users = db.collection('users');
 
-    const challenge = await pendingRegistrations.findOne({
+    let challenge = await pendingRegistrations.findOne({
       setupTokenHash: getTokenHash(setupToken),
       usedAt: null,
       expiresAt: { $gt: new Date() },
     });
+
+    let challengeType = 'pendingRegistration';
+
+    if (!challenge) {
+      const invitedAccount = await users.findOne({
+        mfaSetupTokenHash: getTokenHash(setupToken),
+        accountStatus: 'mfa_pending',
+      });
+
+      if (invitedAccount) {
+        challenge = invitedAccount;
+        challengeType = 'user';
+      }
+    }
 
     if (!challenge) {
       return NextResponse.json({ error: 'MFA setup session is invalid or expired.' }, { status: 401 });
     }
 
     // Check if MFA is enabled for this registration
-    if (!challenge.enableMFA) {
+    if (challengeType === 'pendingRegistration' && !challenge.enableMFA) {
       return NextResponse.json(
         {
           message: 'Account created successfully without MFA. Proceed to login.',
@@ -54,15 +69,27 @@ export async function POST() {
     });
     const qrCodeDataUrl = await QRCode.toDataURL(otpauth);
 
-    await pendingRegistrations.updateOne(
-      { _id: challenge._id },
-      {
-        $set: {
-          tempSecretEncrypted: encryptMfaSecret(secret),
-          updatedAt: new Date(),
-        },
-      }
-    );
+    if (challengeType === 'user') {
+      await users.updateOne(
+        { _id: challenge._id },
+        {
+          $set: {
+            tempSecretEncrypted: encryptMfaSecret(secret),
+            updatedAt: new Date(),
+          },
+        }
+      );
+    } else {
+      await pendingRegistrations.updateOne(
+        { _id: challenge._id },
+        {
+          $set: {
+            tempSecretEncrypted: encryptMfaSecret(secret),
+            updatedAt: new Date(),
+          },
+        }
+      );
+    }
 
     return NextResponse.json(
       {

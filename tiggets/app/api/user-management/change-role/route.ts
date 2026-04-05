@@ -3,12 +3,15 @@ import { ObjectId } from "mongodb";
 import clientPromise from "@/lib/mongodb";
 import { getCurrentSession } from "@/lib/rbac";
 import { createLog, LOG_EVENT_TYPES } from '@/lib/logger';
+import { verifyUserMfa } from '@/lib/mfa';
 
 const ALLOWED_ROLES = new Set(["admin", "manager", "customer"]);
 
 type ChangeRoleRequestBody = {
     userIds?: string[];
     role?: string;
+    mfaCode?: string;
+    backupCode?: string;
 };
 
 export async function PATCH(request: Request) {
@@ -67,6 +70,22 @@ export async function PATCH(request: Request) {
 
         const client = await clientPromise;
         const db = client.db("TicketingSystem");
+
+        const actingUser = await db.collection('users').findOne({ _id: new ObjectId(String(session.userId)) });
+        if (!actingUser) {
+            return NextResponse.json({ error: 'User not found.' }, { status: 404 });
+        }
+
+        const mfaResult = await verifyUserMfa({
+            db,
+            user: actingUser,
+            mfaCode: body.mfaCode,
+            backupCode: body.backupCode,
+        });
+
+        if (!mfaResult.ok) {
+            return NextResponse.json({ error: mfaResult.error, mfaRequired: true }, { status: 401 });
+        }
 
         const affectedUsers = await db
             .collection("users")

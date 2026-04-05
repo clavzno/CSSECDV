@@ -11,8 +11,25 @@ export default function LoginForm() {
   // Form state
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [backupCode, setBackupCode] = useState('');
+  const [verificationMode, setVerificationMode] = useState('mfa');
+  const [mfaRequired, setMfaRequired] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  function getOrCreateDeviceId() {
+    const key = 'tiggets_device_id';
+    const existing = localStorage.getItem(key);
+    if (existing) return existing;
+
+    const generated = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `dev_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+    localStorage.setItem(key, generated);
+    return generated;
+  }
 
   // Handle form submission
   async function handleSubmit(event) {
@@ -21,19 +38,36 @@ export default function LoginForm() {
     setIsLoading(true);
 
     try {
+      const deviceId = getOrCreateDeviceId();
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': deviceId,
+        },
+        body: JSON.stringify({
+          username,
+          password,
+          mfaCode: mfaRequired && verificationMode === 'mfa' ? mfaCode : '',
+          backupCode: mfaRequired && verificationMode === 'backup' ? backupCode.trim().toUpperCase() : '',
+        }),
       });
 
       const data = await res.json();
+      if (res.status === 401 && data?.mfaRequired) {
+        setMfaRequired(true);
+        throw new Error(data.error || 'MFA code is required to continue.');
+      }
+
       if (!res.ok) {
         throw new Error(data.error || 'Login failed');
       }
 
       window.alert(data.lastLoginMessage);
       localStorage.setItem('user', JSON.stringify(data.user));
+      setMfaRequired(false);
+      setMfaCode('');
+      setBackupCode('');
       router.push('/dashboard');
       
     } catch (err) {
@@ -91,6 +125,54 @@ export default function LoginForm() {
             className="rounded-lg border border-border-gray px-4 py-3 font-text text-foreground outline-none transition focus:border-tiggets-lightgreen bg-background"
           />
         </div>
+
+        {mfaRequired && (
+          <div className="rounded-lg border border-background/30 bg-background/10 p-3">
+            <p className="mb-2 text-sm font-semibold text-background">Multi-Factor Authentication Required</p>
+            <div className="mb-2 flex items-center gap-4">
+              <label className="flex items-center gap-2 text-xs text-background">
+                <input
+                  type="radio"
+                  name="loginVerificationMode"
+                  value="mfa"
+                  checked={verificationMode === 'mfa'}
+                  onChange={(e) => setVerificationMode(e.target.value)}
+                  className="h-4 w-4 accent-tiggets-lightgreen"
+                />
+                Authentication Code
+              </label>
+              <label className="flex items-center gap-2 text-xs text-background">
+                <input
+                  type="radio"
+                  name="loginVerificationMode"
+                  value="backup"
+                  checked={verificationMode === 'backup'}
+                  onChange={(e) => setVerificationMode(e.target.value)}
+                  className="h-4 w-4 accent-tiggets-lightgreen"
+                />
+                Backup Code
+              </label>
+            </div>
+
+            {verificationMode === 'mfa' ? (
+              <input
+                type="text"
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Enter 6-digit code"
+                className="w-full rounded-lg border border-border-gray px-4 py-2 font-text text-foreground outline-none transition focus:border-tiggets-lightgreen bg-background"
+              />
+            ) : (
+              <input
+                type="text"
+                value={backupCode}
+                onChange={(e) => setBackupCode(e.target.value.toUpperCase())}
+                placeholder="Enter backup code"
+                className="w-full rounded-lg border border-border-gray px-4 py-2 font-text text-foreground outline-none transition focus:border-tiggets-lightgreen bg-background"
+              />
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <label

@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
-import { hashPassword, verifyPassword, decryptMfaSecret } from '@/lib/crypto';
+import { hashPassword, verifyPassword } from '@/lib/crypto';
 import { createLog } from '@/lib/logger';
-import { OTP } from 'otplib';
-import crypto from 'crypto';
-
-const totp = new OTP({ strategy: 'totp' });
+import {
+  verifyUserMfa,
+  getClientIp,
+  isCustomerIpTrusted,
+  markCustomerIpTrusted,
+} from '@/lib/mfa';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -44,6 +46,7 @@ export async function GET(request) {
     const client = await clientPromise;
     const db = client.db('TicketingSystem');
     const usersCollection = db.collection('users');
+    const clientIp = getClientIp(request);
 
     const user = await usersCollection.findOne({ emailLower: email.toLowerCase() });
 
@@ -63,6 +66,10 @@ export async function GET(request) {
 
     // Check if user has MFA enabled
     const hasMFA = Boolean(user.mfaEnabled);
+    const userRole = String(user.role || '').toLowerCase();
+    const requiresMfaPrompt = userRole === 'admin'
+      || userRole === 'manager'
+      || (userRole === 'customer' && !isCustomerIpTrusted(user, clientIp, 'password_reset'));
 
     await createLog({
       userId: user._id,
@@ -75,6 +82,7 @@ export async function GET(request) {
       message: 'If an account exists, a password reset email has been sent.',
       hasAccount: true,
       hasMFA,
+      requiresMfaPrompt,
       securityQuestions: !hasMFA && Array.isArray(user.securityQuestions) ? user.securityQuestions.map((q, index) => ({
         index,
         question: q.question,
@@ -103,6 +111,7 @@ export async function POST(request) {
     const client = await clientPromise;
     const db = client.db('TicketingSystem');
     const usersCollection = db.collection('users');
+    const clientIp = getClientIp(request);
 
     const user = await usersCollection.findOne({ emailLower: email.toLowerCase() });
 
@@ -118,6 +127,11 @@ export async function POST(request) {
 
     // Determine verification method based on user's MFA status
     const usesMFA = Boolean(user.mfaEnabled);
+    const userRole = String(user.role || '').toLowerCase();
+    const customerIpTrusted = userRole === 'customer' && isCustomerIpTrusted(user, clientIp, 'password_reset');
+    const mustUseMfaByPolicy = userRole === 'admin'
+      || userRole === 'manager'
+      || (userRole === 'customer' && !customerIpTrusted);
 
     await createLog({
       userId: user._id,
@@ -130,47 +144,25 @@ export async function POST(request) {
 
     const verificationOnly = !newPassword && !confirmPassword;
 
-    if (usesMFA) {
-      if (!user.mfaEnabled) {
-        return NextResponse.json({ error: 'MFA is not enabled for this account.' }, { status: 400 });
-      }
+    if (userRole === 'customer') {
+      if (mustUseMfaByPolicy) {
+        const mfaResult = await verifyUserMfa({ db, user, mfaCode, backupCode });
+        verificationPassed = mfaResult.ok;
 
-      const normalizedCode = String(mfaCode || '').trim();
-      const normalizedBackupCode = String(backupCode || '').trim().toUpperCase();
-
-      if (normalizedCode) {
-        if (!/^\d{6}$/.test(normalizedCode)) {
-          return NextResponse.json({ error: 'Enter a valid 6-digit authentication code.' }, { status: 400 });
+        if (!verificationPassed) {
+          return NextResponse.json({ error: mfaResult.error }, { status: 401 });
         }
 
-        if (!user.mfaSecretEncrypted) {
-          return NextResponse.json({ error: 'MFA is enabled but not configured for this account.' }, { status: 400 });
-        }
-
-        try {
-          const secret = decryptMfaSecret(user.mfaSecretEncrypted);
-          const result = totp.verifySync({ token: normalizedCode, secret });
-          verificationPassed = result && result.valid === true;
-        } catch (err) {
-          console.error('MFA decryption error:', err);
-          return NextResponse.json({ error: 'MFA verification failed.' }, { status: 400 });
-        }
-      } else if (normalizedBackupCode) {
-        const backupCodeHash = crypto.createHash('sha256').update(normalizedBackupCode).digest('hex');
-        const backupCodeHashes = Array.isArray(user.backupCodeHashes) ? user.backupCodeHashes : [];
-
-        if (backupCodeHashes.includes(backupCodeHash)) {
-          verificationPassed = true;
-          await usersCollection.updateOne(
-            { _id: user._id },
-            {
-              $pull: { backupCodeHashes: backupCodeHash },
-              $set: { updatedAt: new Date() },
-            }
-          );
-        }
+        await markCustomerIpTrusted(db, user._id, clientIp, 'password_reset');
       } else {
-        return NextResponse.json({ error: 'Provide either an MFA code or a backup code.' }, { status: 400 });
+        verificationPassed = true;
+      }
+    } else if (mustUseMfaByPolicy || usesMFA) {
+      const mfaResult = await verifyUserMfa({ db, user, mfaCode, backupCode });
+      verificationPassed = mfaResult.ok;
+
+      if (!verificationPassed) {
+        return NextResponse.json({ error: mfaResult.error }, { status: 401 });
       }
     } else {
       // Verify security questions

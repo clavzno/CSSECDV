@@ -190,15 +190,40 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
     if (!canModifyTicket) return;
 
     try {
-      const res = await fetch(`/api/tickets/%23${encodeURIComponent(cleanId)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deleteReplyId: replyId }), 
-      });
+      const promptMfaCredentials = () => {
+        const useBackup = window.confirm('MFA required for deletion. Click OK to use backup code, Cancel for authenticator code.');
+        const code = window.prompt(useBackup ? 'Enter backup code:' : 'Enter 6-digit authentication code:');
+        if (!code) return null;
+        return useBackup
+          ? { mfaCode: "", backupCode: code.trim().toUpperCase() }
+          : { mfaCode: code.trim(), backupCode: "" };
+      };
+
+      const sendDelete = async (mfaPayload = { mfaCode: "", backupCode: "" }) => {
+        const res = await fetch(`/api/tickets/%23${encodeURIComponent(cleanId)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deleteReplyId: replyId, ...mfaPayload }),
+        });
+        const data = await res.json();
+        return { res, data };
+      };
+
+      let { res, data } = await sendDelete();
+
+      if (res.status === 401 && data?.mfaRequired) {
+        const mfaPayload = promptMfaCredentials();
+        if (!mfaPayload) {
+          return;
+        }
+        ({ res, data } = await sendDelete(mfaPayload));
+      }
 
       if (res.ok) {
         setActiveMessageMenu(null);
         router.refresh();
+      } else {
+        window.alert(data?.error || 'Failed to delete reply.');
       }
     } catch (error) {
       console.error("Failed to delete reply:", error);

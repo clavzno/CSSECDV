@@ -34,6 +34,7 @@ function getStrengthScore(password) {
 export default function ChangePasswordForm() {
   const router = useRouter();
   const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [requiresMfaPrompt, setRequiresMfaPrompt] = useState(true);
   const [verificationMode, setVerificationMode] = useState('mfa');
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState(["", "", ""]);
@@ -57,6 +58,7 @@ export default function ChangePasswordForm() {
         
         if (res.ok) {
           setMfaEnabled(Boolean(data.mfaEnabled));
+          setRequiresMfaPrompt(data.requiresMfaPrompt !== false);
           setVerificationMode(data.mfaEnabled ? 'mfa' : 'questions');
           setQuestions(data.questions);
         } else {
@@ -85,10 +87,10 @@ export default function ChangePasswordForm() {
     if (!mfaEnabled && answers.some((ans) => ans.trim() === "")) {
       return setStatus({ type: "error", message: "Please answer all security questions." });
     }
-    if (mfaEnabled && verificationMode === 'mfa' && !/^\d{6}$/.test(mfaCode.trim())) {
+    if (mfaEnabled && requiresMfaPrompt && verificationMode === 'mfa' && !/^\d{6}$/.test(mfaCode.trim())) {
       return setStatus({ type: "error", message: "Please enter a valid 6-digit MFA code." });
     }
-    if (mfaEnabled && verificationMode === 'backup' && !backupCode.trim()) {
+    if (mfaEnabled && requiresMfaPrompt && verificationMode === 'backup' && !backupCode.trim()) {
       return setStatus({ type: "error", message: "Please enter a backup code." });
     }
     if (!passwordsMatch) {
@@ -105,7 +107,7 @@ export default function ChangePasswordForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           newPassword,
-          ...(mfaEnabled
+          ...(mfaEnabled && requiresMfaPrompt
             ? verificationMode === 'mfa'
               ? { mfaCode, backupCode: '' }
               : { backupCode, mfaCode: '' }
@@ -150,7 +152,7 @@ export default function ChangePasswordForm() {
               {mfaEnabled ? 'Multi-Factor Authentication' : 'Security Questions'}
             </h2>
 
-            {mfaEnabled ? (
+            {mfaEnabled && requiresMfaPrompt ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <label className="flex items-center gap-2 text-sm text-zinc-700">
@@ -207,6 +209,10 @@ export default function ChangePasswordForm() {
                   </div>
                 )}
               </div>
+            ) : mfaEnabled ? (
+              <p className="rounded-md bg-green-50 p-3 text-sm text-green-700">
+                MFA prompt not required from your current trusted IP.
+              </p>
             ) : questions.length > 0 ? (
               questions.map((q, index) => (
                 <div key={index}>

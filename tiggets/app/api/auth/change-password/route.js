@@ -2,17 +2,15 @@ import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { getCurrentSession } from '@/lib/rbac';
 import { ObjectId } from 'mongodb';
-import { OTP } from 'otplib';
-import crypto from 'crypto';
 import { createLog } from '@/lib/logger';
+import {
+    verifyUserMfa,
+    getClientIp,
+    isCustomerIpTrusted,
+    markCustomerIpTrusted,
+} from '@/lib/mfa';
 
-import { hashPassword, verifyPassword, decryptMfaSecret } from '@/lib/crypto'; 
-
-const totp = new OTP({ strategy: 'totp' });
-
-function hashBackupCode(code) {
-    return crypto.createHash('sha256').update(String(code || '').trim().toUpperCase()).digest('hex');
-}
+import { hashPassword, verifyPassword } from '@/lib/crypto'; 
 
 function validatePassword(password) {
   const checks = {
@@ -31,7 +29,7 @@ function validatePassword(password) {
 } 
 
 // 1. GET ROUTE: Send the questions to the frontend
-export async function GET() {
+export async function GET(request) {
     try {
         const session = await getCurrentSession();
         
@@ -48,17 +46,18 @@ export async function GET() {
 
         const client = await clientPromise;
         const db = client.db('TicketingSystem');
+        const clientIp = getClientIp(request);
 
         const user = await db.collection('users').findOne({ _id: new ObjectId(session.userId) });
         
-        if (!user || !user.securityQuestions) {
+        if (!user) {
             await createLog({
                 userId: session.userId,
                 actionType: 'SYSTEM_ERROR',
-                details: `Security questions missing for user session: ${session.userId}`,
+                details: `User record missing for session: ${session.userId}`,
                 priorityLevel: 'critical'
             });
-            return NextResponse.json({ error: 'User or questions not found' }, { status: 404 });
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
                 // Only send question text to the frontend, never answer hashes.
@@ -73,9 +72,13 @@ export async function GET() {
           priorityLevel: 'info',
         });
 
+        const userRole = String(user.role || '').toLowerCase();
+        const requiresMfaPrompt = userRole === 'customer' && !isCustomerIpTrusted(user, clientIp, 'password_change');
+
                 return NextResponse.json(
                     {
                         mfaEnabled: Boolean(user.mfaEnabled),
+                        requiresMfaPrompt,
                         questions: safeQuestions,
                     },
                     { status: 200 }
@@ -129,50 +132,33 @@ export async function POST(request) {
 
         const client = await clientPromise;
         const db = client.db('TicketingSystem');
+        const clientIp = getClientIp(request);
 
         const user = await db.collection('users').findOne({ _id: new ObjectId(session.userId) });
         if (!user) {
             return NextResponse.json({ error: 'User data corrupted' }, { status: 500 });
         }
 
-        if (user.mfaEnabled) {
-            const normalizedCode = String(mfaCode || '').trim();
-            const normalizedBackupCode = String(backupCode || '').trim().toUpperCase();
+        const userRole = String(user.role || '').toLowerCase();
+        const customerRequiresIpMfa = userRole === 'customer' && !isCustomerIpTrusted(user, clientIp, 'password_change');
 
-            let mfaVerified = false;
+        if (customerRequiresIpMfa && !user.mfaEnabled) {
+            return NextResponse.json({ error: 'MFA must be enabled for customer password changes.' }, { status: 403 });
+        }
 
-            if (normalizedCode) {
-                if (!/^\d{6}$/.test(normalizedCode)) {
-                    return NextResponse.json({ error: 'Valid 6-digit MFA code is required.' }, { status: 400 });
+        if (userRole === 'customer') {
+            if (customerRequiresIpMfa) {
+                const mfaResult = await verifyUserMfa({ db, user, mfaCode, backupCode });
+                if (!mfaResult.ok) {
+                    return NextResponse.json({ error: mfaResult.error }, { status: 403 });
                 }
 
-                if (!user.mfaSecretEncrypted) {
-                    return NextResponse.json({ error: 'MFA is enabled but not configured for this account.' }, { status: 400 });
-                }
-
-                const secret = decryptMfaSecret(user.mfaSecretEncrypted);
-                const result = totp.verifySync({ token: normalizedCode, secret });
-                mfaVerified = result && result.valid === true;
-            } else if (normalizedBackupCode) {
-                const backupCodeHash = hashBackupCode(normalizedBackupCode);
-                const backupCodeHashes = Array.isArray(user.backupCodeHashes) ? user.backupCodeHashes : [];
-
-                if (backupCodeHashes.includes(backupCodeHash)) {
-                    mfaVerified = true;
-                    await db.collection('users').updateOne(
-                        { _id: new ObjectId(session.userId) },
-                        {
-                            $pull: { backupCodeHashes: backupCodeHash },
-                            $set: { updatedAt: new Date() },
-                        }
-                    );
-                }
-            } else {
-                return NextResponse.json({ error: 'Provide either an MFA code or a backup code.' }, { status: 400 });
+                await markCustomerIpTrusted(db, user._id, clientIp, 'password_change');
             }
-
-            if (!mfaVerified) {
-                return NextResponse.json({ error: 'Invalid authentication or backup code.' }, { status: 403 });
+        } else if (user.mfaEnabled) {
+            const mfaResult = await verifyUserMfa({ db, user, mfaCode, backupCode });
+            if (!mfaResult.ok) {
+                return NextResponse.json({ error: mfaResult.error }, { status: 403 });
             }
         } else {
             if (!Array.isArray(answers) || answers.length !== 3) {
