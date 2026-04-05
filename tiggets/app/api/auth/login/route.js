@@ -8,7 +8,7 @@ import crypto from 'crypto';
 export async function POST(request) {
     try {
         const { username, password } = await request.json();
-        const genericAuthError = 'Invalid username and/or password'; 
+        const genericAuthError = 'Invalid username and/or password';
 
         const client = await clientPromise;
         const db = client.db('TicketingSystem');
@@ -37,6 +37,14 @@ export async function POST(request) {
                 priorityLevel: 'error'
             });
             return NextResponse.json({ error: 'Account is temporarily locked due to too many failed attempts. Please try again later.' }, { status: 401 });
+        }
+
+        // guard
+        if (!user || !user.passwordHash || typeof user.passwordHash !== 'string' || !user.passwordHash.includes(':')) {
+            return NextResponse.json(
+                { error: 'Invalid username/email or password.' },
+                { status: 401 }
+            );
         }
 
         // 3. Verify the password (Using the correct 'passwordHash' field)
