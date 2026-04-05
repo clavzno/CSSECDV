@@ -16,6 +16,10 @@ function generateBackupCodes(count = 8) {
   return Array.from({ length: count }, () => crypto.randomBytes(4).toString('hex').toUpperCase());
 }
 
+function hashBackupCode(code) {
+  return crypto.createHash('sha256').update(String(code || '').trim().toUpperCase()).digest('hex');
+}
+
 export async function POST(request) {
   try {
     const { code } = await request.json();
@@ -66,6 +70,7 @@ export async function POST(request) {
     }
 
     const backupCodes = generateBackupCodes();
+    const backupCodeHashes = backupCodes.map(hashBackupCode);
     const createdAt = new Date();
     const finalUser = {
       username: challenge.username,
@@ -79,6 +84,7 @@ export async function POST(request) {
       securityQuestions: challenge.securityQuestions,
       mfaEnabled: true,
       mfaSecretEncrypted: challenge.tempSecretEncrypted,
+      backupCodeHashes,
       failedLoginAttempts: 0,
       lockedUntil: null,
       lastLoginAttempt: null,

@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
-import { hashPassword, verifyPassword } from '@/lib/crypto';
+import { hashPassword, verifyPassword, decryptMfaSecret } from '@/lib/crypto';
 import { createLog } from '@/lib/logger';
+import { OTP } from 'otplib';
+import crypto from 'crypto';
+
+const totp = new OTP({ strategy: 'totp' });
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function validatePassword(password) {
   const checks = {
@@ -24,8 +30,15 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const email = searchParams.get('email')?.trim();
 
-    if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    // --- NEW: Log Validation Failure (Requirement 2.4.5) ---
+    if (!email || !EMAIL_REGEX.test(email)) {
+      await createLog({
+        userId: 'Unauthenticated',
+        actionType: 'FORGOT_PWD_VALIDATION_FAIL',
+        details: `Forgot password lookup failed: Missing or invalid email format provided.`,
+        priorityLevel: 'warning',
+      });
+      return NextResponse.json({ error: 'A valid email is required' }, { status: 400 });
     }
 
     const client = await clientPromise;
@@ -34,11 +47,11 @@ export async function GET(request) {
 
     const user = await usersCollection.findOne({ emailLower: email.toLowerCase() });
 
-    // Always return the same message for security (prevent email enumeration)
+    // Always return the same message for security (Requirement 2.1.4: prevent email enumeration)
     if (!user) {
       await createLog({
-        userId: null, // No user found, so no userId
-        eventType: 'PASSWORD_RESET_REQUEST',
+        userId: 'Unauthenticated',
+        actionType: 'FORGOT_PWD_EMAIL_CHECK',
         details: `Password reset requested for non-existent email: ${email}`,
         priorityLevel: 'info',
       });
@@ -48,13 +61,13 @@ export async function GET(request) {
       });
     }
 
-    // Check if user has MFA enabled (future feature)
-    const hasMFA = user.mfaEnabled || false;
+    // Check if user has MFA enabled
+    const hasMFA = Boolean(user.mfaEnabled);
 
     await createLog({
       userId: user._id,
-      eventType: 'PASSWORD_RESET_REQUEST',
-      details: `${user.username} requested a password reset.`,
+      actionType: 'FORGOT_PWD_EMAIL_CHECK',
+      details: `${user.username} requested a password reset. Identity check passed.`,
       priorityLevel: 'info',
     });
 
@@ -62,10 +75,10 @@ export async function GET(request) {
       message: 'If an account exists, a password reset email has been sent.',
       hasAccount: true,
       hasMFA,
-      securityQuestions: hasMFA ? [] : user.securityQuestions?.map((q, index) => ({
+      securityQuestions: !hasMFA && Array.isArray(user.securityQuestions) ? user.securityQuestions.map((q, index) => ({
         index,
         question: q.question,
-      })) || []
+      })) : []
     });
   } catch (error) {
     console.error('Forgot password GET error:', error);
@@ -75,19 +88,16 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { email, verificationMethod, answers, mfaCode, newPassword, confirmPassword } = await request.json();
+    const { email, answers, mfaCode, backupCode, newPassword, confirmPassword } = await request.json();
 
-    if (!email || !newPassword || !confirmPassword) {
-      return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
-    }
-
-    if (newPassword !== confirmPassword) {
-      return NextResponse.json({ error: 'Passwords do not match' }, { status: 400 });
-    }
-
-    const passwordValidation = validatePassword(newPassword);
-    if (!passwordValidation.isValid) {
-      return NextResponse.json({ error: 'Password does not meet policy requirements' }, { status: 400 });
+    if (!email) {
+      await createLog({
+        userId: 'Unauthenticated',
+        actionType: 'FORGOT_PWD_VALIDATION_FAIL',
+        details: 'Password reset POST failed: Missing email.',
+        priorityLevel: 'warning'
+      });
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
     const client = await clientPromise;
@@ -97,49 +107,144 @@ export async function POST(request) {
     const user = await usersCollection.findOne({ emailLower: email.toLowerCase() });
 
     if (!user) {
+      await createLog({
+        userId: 'Unauthenticated',
+        actionType: 'FORGOT_PWD_IDENTITY_FAIL',
+        details: `Unauthorized attempt to reset password for non-existent user: ${email}.`,
+        priorityLevel: 'critical'
+      });
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
 
-    // Log the password reset attempt
+    // Determine verification method based on user's MFA status
+    const usesMFA = Boolean(user.mfaEnabled);
+
     await createLog({
       userId: user._id,
-      eventType: 'PASSWORD_RESET_ATTEMPT',
-      details: `${user.username} attempted to reset password using ${verificationMethod} verification.`,
+      actionType: 'FORGOT_PWD_ATTEMPT',
+      details: `${user.username} attempted to reset password using ${usesMFA ? 'MFA' : 'security questions'} verification.`,
       priorityLevel: 'info',
     });
 
     let verificationPassed = false;
 
-    if (verificationMethod === 'mfa') {
-      // Future MFA verification logic
-      // For now, assume MFA verification passes if user has MFA enabled
-      if (user.mfaEnabled && mfaCode) {
-        // TODO: Implement actual MFA verification
-        verificationPassed = true; // Placeholder
+    const verificationOnly = !newPassword && !confirmPassword;
+
+    if (usesMFA) {
+      if (!user.mfaEnabled) {
+        return NextResponse.json({ error: 'MFA is not enabled for this account.' }, { status: 400 });
       }
-    } else if (verificationMethod === 'questions') {
+
+      const normalizedCode = String(mfaCode || '').trim();
+      const normalizedBackupCode = String(backupCode || '').trim().toUpperCase();
+
+      if (normalizedCode) {
+        if (!/^\d{6}$/.test(normalizedCode)) {
+          return NextResponse.json({ error: 'Enter a valid 6-digit authentication code.' }, { status: 400 });
+        }
+
+        if (!user.mfaSecretEncrypted) {
+          return NextResponse.json({ error: 'MFA is enabled but not configured for this account.' }, { status: 400 });
+        }
+
+        try {
+          const secret = decryptMfaSecret(user.mfaSecretEncrypted);
+          const result = totp.verifySync({ token: normalizedCode, secret });
+          verificationPassed = result && result.valid === true;
+        } catch (err) {
+          console.error('MFA decryption error:', err);
+          return NextResponse.json({ error: 'MFA verification failed.' }, { status: 400 });
+        }
+      } else if (normalizedBackupCode) {
+        const backupCodeHash = crypto.createHash('sha256').update(normalizedBackupCode).digest('hex');
+        const backupCodeHashes = Array.isArray(user.backupCodeHashes) ? user.backupCodeHashes : [];
+
+        if (backupCodeHashes.includes(backupCodeHash)) {
+          verificationPassed = true;
+          await usersCollection.updateOne(
+            { _id: user._id },
+            {
+              $pull: { backupCodeHashes: backupCodeHash },
+              $set: { updatedAt: new Date() },
+            }
+          );
+        }
+      } else {
+        return NextResponse.json({ error: 'Provide either an MFA code or a backup code.' }, { status: 400 });
+      }
+    } else {
       // Verify security questions
-      if (!user.securityQuestions || user.securityQuestions.length !== answers.length) {
+      if (!Array.isArray(user.securityQuestions) || user.securityQuestions.length !== 3 || !Array.isArray(answers) || answers.length !== 3) {
         return NextResponse.json({ error: 'Invalid security questions' }, { status: 400 });
       }
 
-      verificationPassed = user.securityQuestions.every((q, index) => {
-        const providedAnswer = answers[index]?.trim().toLowerCase();
-        return providedAnswer && verifyPassword(providedAnswer, q.answerHash);
+      // timingSafeEqual is utilized inside verifyPassword to prevent timing attacks (Requirement 2.1.4)
+      verificationPassed = true;
+      for (let i = 0; i < user.securityQuestions.length; i++) {
+        const providedAnswer = String(answers[i] || '').trim().toLowerCase();
+        const isCorrect = verifyPassword(providedAnswer, user.securityQuestions[i].answerHash);
+        if (!isCorrect) {
+          verificationPassed = false;
+          break;
+        }
+      }
+    }
+
+    if (verificationOnly) {
+      if (!verificationPassed) {
+        await createLog({
+          userId: user._id,
+          actionType: 'FORGOT_PWD_IDENTITY_FAIL',
+          details: `${user.username} failed identity verification during password reset.`,
+          priorityLevel: 'warning',
+        });
+        return NextResponse.json({ error: 'Verification failed' }, { status: 401 });
+      }
+
+      return NextResponse.json({ message: 'Verification successful' }, { status: 200 });
+    }
+
+    if (!newPassword || !confirmPassword) {
+      await createLog({
+        userId: user._id,
+        actionType: 'FORGOT_PWD_VALIDATION_FAIL',
+        details: `Password reset failed: Missing new password or confirmation for ${email}.`,
+        priorityLevel: 'warning'
       });
+      return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
+    }
+
+    if (newPassword !== confirmPassword) {
+      await createLog({
+        userId: user._id,
+        actionType: 'FORGOT_PWD_VALIDATION_FAIL',
+        details: `Password reset failed: Password confirmation mismatch for ${email}.`,
+        priorityLevel: 'warning'
+      });
+      return NextResponse.json({ error: 'Passwords do not match' }, { status: 400 });
+    }
+
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
+      await createLog({
+        userId: user._id,
+        actionType: 'FORGOT_PWD_VALIDATION_FAIL',
+        details: `Password reset failed: New password for ${email} does not meet complexity requirements.`,
+        priorityLevel: 'warning'
+      });
+      return NextResponse.json({ error: 'Password does not meet policy requirements' }, { status: 400 });
     }
 
     if (!verificationPassed) {
       await createLog({
         userId: user._id,
-        eventType: 'PASSWORD_RESET_FAIL',
-        details: `${user.username} failed to reset password. Reason: Incorrect verification.`,
+        actionType: 'FORGOT_PWD_IDENTITY_FAIL',
+        details: `${user.username} failed to verify identity. Reason: Incorrect security answers or MFA code.`,
         priorityLevel: 'warning',
       });
       return NextResponse.json({ error: 'Verification failed' }, { status: 401 });
     }
 
-    // Update password
     const newPasswordHash = hashPassword(newPassword);
     await usersCollection.updateOne(
       { _id: user._id },
@@ -155,8 +260,8 @@ export async function POST(request) {
 
     await createLog({
       userId: user._id,
-      eventType: 'PASSWORD_RESET_SUCCESS',
-      details: `${user.username} successfully reset their password.`,
+      actionType: 'FORGOT_PWD_SUCCESS',
+      details: `${user.username} successfully reset their password via recovery flow.`,
       priorityLevel: 'info',
     });
 

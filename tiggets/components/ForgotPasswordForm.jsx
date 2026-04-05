@@ -38,12 +38,12 @@ export default function ForgotPasswordForm() {
 
   const [step, setStep] = useState('email');
   const [email, setEmail] = useState('');
-  const [hasAccount, setHasAccount] = useState(null);
   const [hasMFA, setHasMFA] = useState(false);
+  const [verificationMode, setVerificationMode] = useState('mfa');
   const [questions, setQuestions] = useState([]);
-  const [verificationMethod, setVerificationMethod] = useState('questions');
   const [answers, setAnswers] = useState(['', '', '']);
   const [mfaCode, setMfaCode] = useState('');
+  const [backupCode, setBackupCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -76,8 +76,8 @@ export default function ForgotPasswordForm() {
         throw new Error(data.error || 'Failed to check email');
       }
 
-      setHasAccount(data.hasAccount);
       setHasMFA(data.hasMFA || false);
+      setVerificationMode(data.hasMFA ? 'mfa' : 'questions');
       setQuestions(data.securityQuestions || []);
 
       setSuccess(data.message || 'If an account exists, a password reset email has been sent.');
@@ -85,7 +85,6 @@ export default function ForgotPasswordForm() {
       setTimeout(() => {
         if (data.hasAccount) {
           setStep('verify');
-          setVerificationMethod(data.hasMFA ? 'mfa' : 'questions');
         }
         setSuccess('');
       }, 2000);
@@ -101,9 +100,25 @@ export default function ForgotPasswordForm() {
     setIsLoading(true);
 
     try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim(),
+          answers: !hasMFA ? answers.map((a) => a.trim()) : [],
+          mfaCode: hasMFA && verificationMode === 'mfa' ? mfaCode : '',
+          backupCode: hasMFA && verificationMode === 'backup' ? backupCode.trim().toUpperCase() : '',
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to verify identity');
+      }
+
       setStep('reset');
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Failed to verify identity');
     } finally {
       setIsLoading(false);
     }
@@ -113,6 +128,42 @@ export default function ForgotPasswordForm() {
     event.preventDefault();
     setError('');
     setSuccess('');
+
+    // Validate verification method based on MFA status
+    if (hasMFA) {
+      if (verificationMode === 'mfa') {
+        if (!/^\d{6}$/.test(mfaCode.trim())) {
+          setError('Please enter a valid 6-digit MFA code');
+          return;
+        }
+      } else if (!backupCode.trim()) {
+        setError('Please enter a backup code');
+        return;
+      }
+    } else {
+      if (answers.some((ans) => !ans.trim())) {
+        setError('Please answer all security questions');
+        return;
+      }
+    }
+
+    // Validate password
+    if (!newPassword || !confirmPassword) {
+      setError('Please enter and confirm your new password');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    const passwordChecks = getPasswordChecks(newPassword);
+    if (!Object.values(passwordChecks).every(Boolean)) {
+      setError('Password does not meet policy requirements');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -121,9 +172,9 @@ export default function ForgotPasswordForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: email.trim(),
-          verificationMethod,
-          answers: verificationMethod === 'questions' ? answers.map(a => a.trim()) : [],
-          mfaCode: verificationMethod === 'mfa' ? mfaCode : '',
+          answers: !hasMFA ? answers.map(a => a.trim()) : [],
+          mfaCode: hasMFA && verificationMode === 'mfa' ? mfaCode : '',
+          backupCode: hasMFA && verificationMode === 'backup' ? backupCode.trim().toUpperCase() : '',
           newPassword,
           confirmPassword,
         }),
@@ -178,7 +229,7 @@ export default function ForgotPasswordForm() {
         <Image src={Tiggets} alt="Tiggets logo" width={190} height={72} className="h-auto" priority />
         <p className="text-center font-text text-xl text-background">
           {step === 'email' && 'Reset Your Password'}
-          {step === 'verify' && 'Verify Your Identity'}
+          {step === 'verify' && (hasMFA ? 'Enter Authentication Code' : 'Answer Security Questions')}
           {step === 'reset' && 'Change Your Password'}
         </p>
         <button
@@ -226,58 +277,66 @@ export default function ForgotPasswordForm() {
 
         {step === 'verify' && (
           <div className="space-y-4">
-            <p className="text-sm text-background">Choose how to verify your identity:</p>
+            <p className="text-sm text-background">
+              {hasMFA ? 'Enter your authentication code or backup code to verify your identity' : 'Answer your security questions to verify your identity'}
+            </p>
 
-            <div className="space-y-3">
-              {hasMFA && (
-                <label className="flex items-center gap-3 p-3 rounded border border-border-gray bg-background">
-                  <input
-                    type="radio"
-                    name="verification"
-                    value="mfa"
-                    checked={verificationMethod === 'mfa'}
-                    onChange={(e) => setVerificationMethod(e.target.value)}
-                    className="h-4 w-4 accent-tiggets-lightgreen"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Multi-Factor Authentication (MFA)</p>
-                    <p className="text-xs text-gray-600">Use your authenticator app or SMS code</p>
-                  </div>
-                </label>
-              )}
-
-              <label className="flex items-center gap-3 p-3 rounded border border-border-gray bg-background">
-                <input
-                  type="radio"
-                  name="verification"
-                  value="questions"
-                  checked={verificationMethod === 'questions'}
-                  onChange={(e) => setVerificationMethod(e.target.value)}
-                  className="h-4 w-4 accent-tiggets-lightgreen"
-                />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Security Questions</p>
-                  <p className="text-xs text-gray-600">Answer your security questions</p>
+            {hasMFA && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 text-sm text-background">
+                    <input
+                      type="radio"
+                      name="verificationMode"
+                      value="mfa"
+                      checked={verificationMode === 'mfa'}
+                      onChange={(e) => setVerificationMode(e.target.value)}
+                      className="h-4 w-4 accent-tiggets-lightgreen"
+                    />
+                    Authentication Code
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-background">
+                    <input
+                      type="radio"
+                      name="verificationMode"
+                      value="backup"
+                      checked={verificationMode === 'backup'}
+                      onChange={(e) => setVerificationMode(e.target.value)}
+                      className="h-4 w-4 accent-tiggets-lightgreen"
+                    />
+                    Backup Code
+                  </label>
                 </div>
-              </label>
-            </div>
 
-            {verificationMethod === 'mfa' && (
-              <div className="space-y-2">
-                <label htmlFor="mfaCode" className="text-sm text-background">MFA Code*</label>
-                <input
-                  id="mfaCode"
-                  type="text"
-                  value={mfaCode}
-                  onChange={(e) => setMfaCode(e.target.value)}
-                  className="w-full rounded border border-border-gray bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-tiggets-lightgreen"
-                  placeholder="Enter your 6-digit code"
-                  maxLength={6}
-                />
+                {verificationMode === 'mfa' ? (
+                  <div className="space-y-2">
+                    <label htmlFor="mfaCode" className="text-sm text-background">MFA Code*</label>
+                    <input
+                      id="mfaCode"
+                      type="text"
+                      value={mfaCode}
+                      onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      className="w-full rounded border border-border-gray bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-tiggets-lightgreen"
+                      placeholder="Enter your 6-digit code"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label htmlFor="backupCode" className="text-sm text-background">Backup Code*</label>
+                    <input
+                      id="backupCode"
+                      type="text"
+                      value={backupCode}
+                      onChange={(e) => setBackupCode(e.target.value.toUpperCase())}
+                      className="w-full rounded border border-border-gray bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-tiggets-lightgreen"
+                      placeholder="Enter one backup code"
+                    />
+                  </div>
+                )}
               </div>
             )}
 
-            {verificationMethod === 'questions' && questions.map((q) => (
+            {!hasMFA && questions.map((q) => (
               <div key={q.index} className="space-y-1">
                 <label className="text-sm text-background">{q.question}</label>
                 <input
