@@ -4,25 +4,31 @@ import { useState } from 'react';
 import { Search, Filter, X } from 'lucide-react';
 import RoleChangeModal from '@/components/RoleChangeModal';
 import DeleteUsersModal from '@/components/DeleteUsersModal';
+import AccountInitiationModal from '@/components/AccountInitiationModal';
+import PendingUsersModal from '@/components/PendingUsersModal';
 
 import { useRouter } from 'next/navigation';
 
-export default function UserManagement({ role, users }) {
+export default function UserManagement({ role, users, session, pendingUsers }) {
   // authorization is checked in page.tsx
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [roleFilter, setRoleFilter] = useState('');
   const [sortBy, setSortBy] = useState('numerical');
   const [selectedUsers, setSelectedUsers] = useState(new Set());
+
+  const [showAccountInitiationModal, setShowAccountInitiationModal] = useState(false);
+  const [showPendingUsersModal, setShowPendingUsersModal] = useState(false);
+
   const [showRoleChangeModal, setShowRoleChangeModal] = useState(false);
   const [showDeleteUsersModal, setShowDeleteUsersModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState('');
 
   const isAdmin = String(role || '').toLowerCase() === 'admin';
+  const pendingUsersList = Array.isArray(pendingUsers) ? pendingUsers : [];
 
   function toggleUser(id) {
     if (!isAdmin) return;
@@ -75,6 +81,24 @@ export default function UserManagement({ role, users }) {
       : { mfaCode: code.trim(), backupCode: '' };
   }
 
+  function openAccountInitiationModal() {
+    if (!isAdmin) return;
+    setShowAccountInitiationModal(true);
+  }
+
+  function closeAccountInitiationModal() {
+    setShowAccountInitiationModal(false);
+  }
+
+  function openPendingUsersModal() {
+    if (!isAdmin) return;
+    setShowPendingUsersModal(true);
+  }
+
+  function closePendingUsersModal() {
+    setShowPendingUsersModal(false);
+  }
+
   async function handleConfirmRoleChange() {
     if (!selectedRole || selectedUsers.size === 0) return;
 
@@ -116,11 +140,102 @@ export default function UserManagement({ role, users }) {
       closeRoleChangeModal();
       router.refresh();
     } catch (error) {
-      console.error('Change role request failed:', error);
       alert(error.message || 'Failed to change role.');
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  async function handleAccountInitiation(payload) {
+    try {
+      setIsSubmitting(true);
+
+      const response = await fetch('/api/user-management/initiate-account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to initiate account.');
+      }
+
+      if (data?.mailToUrl) {
+        window.location.href = data.mailToUrl;
+        return;
+      }
+
+      if (data?.redirectToCompose) {
+        window.open(data.redirectToCompose, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      alert('Account initiation created successfully.');
+      router.refresh();
+    } catch (error) {
+      throw error;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleResendInvitation(user) {
+    try {
+      setIsSubmitting(true);
+
+      const response = await fetch('/api/user-management/resend-initiation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+        }),
+      });
+
+      const contentType = response.headers.get('content-type') || '';
+      let data = null;
+
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        throw new Error('Resend route returned a non-JSON response.');
+      }
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to resend invitation email.');
+      }
+
+      if (data?.mailToUrl) {
+        window.location.href = data.mailToUrl;
+        return;
+      }
+
+      if (data?.redirectToCompose) {
+        window.open(data.redirectToCompose, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      alert('Invitation email resent successfully.');
+      router.refresh();
+    } catch (error) {
+      alert(error.message || 'Failed to resend invitation email.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function openDeleteUsersModal() {
+    if (!isAdmin || selectedUsers.size === 0) return;
+    setShowDeleteUsersModal(true);
+  }
+
+  function closeDeleteUsersModal() {
+    setShowDeleteUsersModal(false);
   }
 
   async function handleConfirmDeleteUsers() {
@@ -163,7 +278,6 @@ export default function UserManagement({ role, users }) {
       closeDeleteUsersModal();
       router.refresh();
     } catch (error) {
-      console.error('Delete users request failed:', error);
       alert(error.message || 'Failed to delete users.');
     } finally {
       setIsSubmitting(false);
@@ -206,27 +320,47 @@ export default function UserManagement({ role, users }) {
       </div>
 
       <div className="bg-[#e2e2e2] pt-8 flex flex-col min-h-150 rounded-t-md shadow-sm border border-zinc-300">
-        <div className="flex flex-col sm:flex-row items-center gap-6 px-6 mb-4 w-full">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center justify-center gap-3 bg-white border px-4 py-2 rounded-sm text-sm font-medium transition-all shadow-sm cursor-pointer w-full sm:w-35 ${showFilters ? 'border-[#3b5949] text-[#3b5949]' : 'border-zinc-300 text-zinc-400'}`}
-          >
-            <Filter size={18} />
-            Filters
-          </button>
+        <div className="flex flex-col gap-4 px-6 mb-4 w-full lg:flex-row lg:items-center">
+          <div className="flex flex-col sm:flex-row items-center gap-6 w-full">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center justify-center gap-3 bg-white border px-4 py-2 rounded-sm text-sm font-medium transition-all shadow-sm cursor-pointer w-full sm:w-35 ${showFilters ? 'border-[#3b5949] text-[#3b5949]' : 'border-zinc-300 text-zinc-400'}`}
+            >
+              <Filter size={18} />
+              Filters
+            </button>
 
-          <div className="flex bg-white border border-zinc-300 rounded-sm w-full max-w-112.5 shadow-sm overflow-hidden focus-within:ring-1 focus-within:ring-[#3b5949]">
-            <input
-              type="text"
-              placeholder="Quick search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 px-4 py-2 text-sm outline-none text-zinc-700 placeholder:text-zinc-400"
-            />
-            <div className="px-3 border-l border-zinc-300 text-zinc-400 flex items-center justify-center bg-zinc-50">
-              <Search size={18} />
+            <div className="flex bg-white border border-zinc-300 rounded-sm w-full shadow-sm overflow-hidden focus-within:ring-1 focus-within:ring-[#3b5949]">
+              <input
+                type="text"
+                placeholder="Quick search..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1 px-4 py-2 text-sm outline-none text-zinc-700 placeholder:text-zinc-400"
+              />
+              <div className="px-3 border-l border-zinc-300 text-zinc-400 flex items-center justify-center bg-zinc-50">
+                <Search size={18} />
+              </div>
             </div>
           </div>
+
+          {isAdmin && (
+            <div className="flex w-full justify-end gap-3 lg:w-auto">
+              <button
+                onClick={openPendingUsersModal}
+                className="bg-white border border-zinc-300 hover:border-[#3b5949] hover:text-[#3b5949] text-zinc-600 px-5 py-2 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer whitespace-nowrap"
+              >
+                Pending Users
+              </button>
+
+              <button
+                onClick={openAccountInitiationModal}
+                className="bg-tiggets-lightgreen hover:opacity-90 text-white px-5 py-2 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer whitespace-nowrap"
+              >
+                Initiate Account
+              </button>
+            </div>
+          )}
         </div>
 
         {showFilters && (
@@ -371,6 +505,25 @@ export default function UserManagement({ role, users }) {
           onClose={closeDeleteUsersModal}
           onConfirm={handleConfirmDeleteUsers}
           selectedCount={selectedUsers.size}
+          isSubmitting={isSubmitting}
+        />
+      )}
+
+      {isAdmin && (
+        <AccountInitiationModal
+          isOpen={showAccountInitiationModal}
+          onClose={closeAccountInitiationModal}
+          onSubmit={handleAccountInitiation}
+          isSubmitting={isSubmitting}
+        />
+      )}
+
+      {isAdmin && (
+        <PendingUsersModal
+          isOpen={showPendingUsersModal}
+          onClose={closePendingUsersModal}
+          pendingUsers={pendingUsersList}
+          onResend={handleResendInvitation}
           isSubmitting={isSubmitting}
         />
       )}

@@ -46,6 +46,14 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Account is temporarily locked due to too many failed attempts. Please try again later.' }, { status: 401 });
         }
 
+        // guard
+        if (!user || !user.passwordHash || typeof user.passwordHash !== 'string' || !user.passwordHash.includes(':')) {
+            return NextResponse.json(
+                { error: 'Invalid username/email or password.' },
+                { status: 401 }
+            );
+        }
+
         // 3. Verify the password (Using the correct 'passwordHash' field)
         const isValid = verifyPassword(password, user.passwordHash);
 

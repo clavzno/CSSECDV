@@ -5,8 +5,8 @@ import { getCurrentSession } from '@/lib/rbac';
 import clientPromise from '@/lib/mongodb';
 // content
 import UserManagement from '@/components/UserManagement';
-// rbac 
-import isAuthorized from '@/lib/rbac'
+// rbac
+import isAuthorized from '@/lib/rbac';
 
 export default async function UserManagementPage() {
     const rawSession = await getCurrentSession();
@@ -26,7 +26,7 @@ export default async function UserManagementPage() {
     const db = client.db('TicketingSystem');
 
     // check if authorized
-    const currentPath = '/user-management'
+    const currentPath = '/user-management';
     if (!isAuthorized(session.role.toLowerCase(), currentPath)) {
         return (
             <main className="ml-56 min-h-screen bg-background p-6">
@@ -39,6 +39,11 @@ export default async function UserManagementPage() {
 
     const users = await db.collection('users').find({}).toArray();
     const tickets = await db.collection('tickets').find({}).toArray();
+
+    const pendingInvitedUsers = await db.collection('users')
+        .find({ accountStatus: 'invited' })
+        .sort({ invitedAt: -1 })
+        .toArray();
 
     // Map the users and get their ticket metrics
     const ACTIVE_STATUSES = new Set(['open', 'pending', 'processing']);
@@ -86,7 +91,7 @@ export default async function UserManagementPage() {
         ).length;
 
         return {
-            mongoId: objectId, // its only this for now
+            mongoId: objectId,
             id: objectId,
             name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'No name provided.',
             username: username || 'No username provided.',
@@ -98,10 +103,27 @@ export default async function UserManagementPage() {
         };
     });
 
+    const formattedPendingUsers = pendingInvitedUsers.map((user) => ({
+        id: String(user._id || '').trim(),
+        username: String(user.username || '').trim(),
+        email: String(user.email || '').trim(),
+        role: String(user.role || 'customer').trim().toLowerCase(),
+        firstName: String(user.firstName || '').trim(),
+        lastName: String(user.lastName || '').trim(),
+        invitedAt: user.invitedAt ? new Date(user.invitedAt).toLocaleString() : 'N/A',
+        inviteExpiresAt: user.inviteExpiresAt ? new Date(user.inviteExpiresAt).toLocaleString() : 'N/A',
+        accountStatus: String(user.accountStatus || '').trim(),
+    }));
+
     return (
         <main className="ml-56 min-h-screen bg-background p-6">
             {/** if the user is a manager, they can see the list of tickets per user. if they are an admin, they can create a new user and/or change roles. */}
-            <UserManagement role={session.role} session={session} users={formattedUsers} />
+            <UserManagement
+                role={session.role}
+                session={session}
+                users={formattedUsers}
+                pendingUsers={formattedPendingUsers}
+            />
         </main>
     );
 }

@@ -45,12 +45,13 @@ function getStrengthScore(password) {
   return { score, label: labels[Math.max(0, score - 1)] };
 }
 
-export default function CreateAccountForm() {
+export default function CreateAccountForm({ inviteToken = '' }) {
   const router = useRouter();
 
   const [form, setForm] = useState({
     username: '',
     email: '',
+    role: 'customer',
     firstName: '',
     lastName: '',
     password: '',
@@ -65,6 +66,20 @@ export default function CreateAccountForm() {
     enableMFA: false,
   });
 
+  const [inviteState, setInviteState] = useState({
+    isLoading: Boolean(inviteToken),
+    isInviteMode: false,
+    error: '',
+  });
+
+  const [lockedFields, setLockedFields] = useState({
+    username: false,
+    email: false,
+    role: false,
+    firstName: false,
+    lastName: false,
+  });
+
   const [usernameAvailable, setUsernameAvailable] = useState(null);
   const [emailAvailable, setEmailAvailable] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -76,11 +91,87 @@ export default function CreateAccountForm() {
   const strength = useMemo(() => getStrengthScore(form.password), [form.password]);
   const passwordsMatch = form.confirmPassword.length > 0 && form.password === form.confirmPassword;
 
+  const isInviteMode = inviteState.isInviteMode;
+  const requiresName = useMemo(() => {
+    const role = String(form.role || '').toLowerCase();
+    return role === 'admin' || role === 'manager' || !isInviteMode;
+  }, [form.role, isInviteMode]);
+
   function isQuestionTaken(question, currentIndex) {
     return [1, 2, 3].some((index) => index !== currentIndex && form[`question${index}`] === question);
   }
 
   useEffect(() => {
+    let ignore = false;
+
+    async function loadInvite() {
+      if (!inviteToken) {
+        setInviteState({
+          isLoading: false,
+          isInviteMode: false,
+          error: '',
+        });
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/auth/invite?token=${encodeURIComponent(inviteToken)}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || 'Invalid invitation link.');
+        }
+
+        if (ignore) return;
+
+        const invite = data.invite || {};
+
+        setForm((prev) => ({
+          ...prev,
+          username: String(invite.username || ''),
+          email: String(invite.email || ''),
+          role: String(invite.role || 'customer'),
+          firstName: String(invite.firstName || ''),
+          lastName: String(invite.lastName || ''),
+        }));
+
+        setLockedFields({
+          username: true,
+          email: true,
+          role: true,
+          firstName: Boolean(invite.requiresName),
+          lastName: Boolean(invite.requiresName),
+        });
+
+        setUsernameAvailable(true);
+        setEmailAvailable(true);
+
+        setInviteState({
+          isLoading: false,
+          isInviteMode: true,
+          error: '',
+        });
+      } catch (error) {
+        if (ignore) return;
+
+        setInviteState({
+          isLoading: false,
+          isInviteMode: false,
+          error: error.message || 'Failed to load invitation.',
+        });
+      }
+    }
+
+    loadInvite();
+
+    return () => {
+      ignore = true;
+    };
+  }, [inviteToken]);
+
+  useEffect(() => {
+    if (lockedFields.username) return;
+
     const username = form.username.trim();
     if (!username || !USERNAME_REGEX.test(username)) {
       setUsernameAvailable(null);
@@ -98,9 +189,11 @@ export default function CreateAccountForm() {
     }, 350);
 
     return () => clearTimeout(timeout);
-  }, [form.username]);
+  }, [form.username, lockedFields.username]);
 
   useEffect(() => {
+    if (lockedFields.email) return;
+
     const email = form.email.trim();
     if (!email || !EMAIL_REGEX.test(email)) {
       setEmailAvailable(null);
@@ -118,10 +211,15 @@ export default function CreateAccountForm() {
     }, 350);
 
     return () => clearTimeout(timeout);
-  }, [form.email]);
+  }, [form.email, lockedFields.email]);
 
   function updateField(event) {
     const { name, value, type, checked } = event.target;
+
+    if (lockedFields[name]) {
+      return;
+    }
+
     setForm((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
@@ -139,11 +237,11 @@ export default function CreateAccountForm() {
       errors.email = 'Please enter a valid email address.';
     }
 
-    if (form.firstName.trim().length < 2) {
+    if (requiresName && form.firstName.trim().length < 2) {
       errors.firstName = 'First name must be at least 2 characters.';
     }
 
-    if (form.lastName.trim().length < 2) {
+    if (requiresName && form.lastName.trim().length < 2) {
       errors.lastName = 'Last name must be at least 2 characters.';
     }
 
@@ -174,11 +272,11 @@ export default function CreateAccountForm() {
       errors.acceptedTerms = 'You must accept the Terms and Conditions.';
     }
 
-    if (usernameAvailable === false) {
+    if (!lockedFields.username && usernameAvailable === false) {
       errors.username = 'Username unavailable.';
     }
 
-    if (emailAvailable === false) {
+    if (!lockedFields.email && emailAvailable === false) {
       errors.email = 'Email already in use.';
     }
 
@@ -201,12 +299,14 @@ export default function CreateAccountForm() {
       const payload = {
         username: form.username.trim(),
         email: form.email.trim(),
+        role: form.role,
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         password: form.password,
         confirmPassword: form.confirmPassword,
         acceptedTerms: form.acceptedTerms,
         enableMFA: form.enableMFA,
+        inviteToken: inviteToken || '',
         securityQuestions: [
           { question: form.question1, answer: form.answer1 },
           { question: form.question2, answer: form.answer2 },
@@ -264,17 +364,41 @@ export default function CreateAccountForm() {
     );
   }
 
+  const readOnlyInputClass =
+    'w-full rounded border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 outline-none cursor-not-allowed';
+
+  if (inviteState.isLoading) {
+    return (
+      <div className="w-full rounded-2xl bg-linear-to-r from-[#123528] to-[#173529] p-6 shadow-md md:p-10">
+        <div className="mb-6 flex flex-col items-center gap-1">
+          <Image src={Tiggets} alt="Tiggets logo" width={190} height={72} className="h-auto" priority />
+          <p className="text-center font-text text-xl text-background">Loading invitation...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full rounded-2xl bg-gradient-to-r from-[#123528] to-[#173529] p-6 shadow-md md:p-10">
+    <div className="w-full rounded-2xl bg-linear-to-r from-[#123528] to-[#173529] p-6 shadow-md md:p-10">
       <div className="mb-6 flex flex-col items-center gap-1">
         <Image src={Tiggets} alt="Tiggets logo" width={190} height={72} className="h-auto" priority />
-        <p className="text-center font-text text-xl text-background">Create a free account to get started.</p>
+        <p className="text-center font-text text-xl text-background">
+          {isInviteMode
+            ? 'Complete your invited account setup.'
+            : 'Create a free account to get started.'}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {(submitError || successMessage) && (
-          <div className={`rounded-lg p-3 text-sm font-medium ${submitError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-            {submitError || successMessage}
+        {(inviteState.error || submitError || successMessage) && (
+          <div className={`rounded-lg p-3 text-sm font-medium ${inviteState.error || submitError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+            {inviteState.error || submitError || successMessage}
+          </div>
+        )}
+
+        {isInviteMode && (
+          <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            Some account details were predefined by an administrator and cannot be edited here.
           </div>
         )}
 
@@ -283,8 +407,20 @@ export default function CreateAccountForm() {
             <div className="grid grid-cols-[130px_1fr] items-center gap-2">
               <label htmlFor="username" className="text-sm text-background">Username*</label>
               <div className="space-y-1">
-                <input id="username" name="username" value={form.username} onChange={updateField} className="w-full rounded border border-border-gray bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-tiggets-lightgreen" placeholder="Username..." />
-                <StatusBadge okText="Username Available!" failText="Username Unavailable!" state={usernameAvailable} />
+                <input
+                  id="username"
+                  name="username"
+                  value={form.username}
+                  onChange={updateField}
+                  readOnly={lockedFields.username}
+                  className={lockedFields.username
+                    ? readOnlyInputClass
+                    : "w-full rounded border border-border-gray bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-tiggets-lightgreen"}
+                  placeholder="Username..."
+                />
+                {!lockedFields.username && (
+                  <StatusBadge okText="Username Available!" failText="Username Unavailable!" state={usernameAvailable} />
+                )}
                 {fieldErrors.username && <p className="text-xs text-[#ff9f9f]">{fieldErrors.username}</p>}
               </div>
             </div>
@@ -292,24 +428,73 @@ export default function CreateAccountForm() {
             <div className="grid grid-cols-[130px_1fr] items-center gap-2">
               <label htmlFor="email" className="text-sm text-background">Email address*</label>
               <div className="space-y-1">
-                <input id="email" name="email" value={form.email} onChange={updateField} className="w-full rounded border border-border-gray bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-tiggets-lightgreen" placeholder="JohnDoe@email.com..." />
-                <StatusBadge okText="Valid email address." failText="Please enter a valid email." state={EMAIL_REGEX.test(form.email.trim()) && emailAvailable !== false ? true : form.email ? false : null} />
+                <input
+                  id="email"
+                  name="email"
+                  value={form.email}
+                  onChange={updateField}
+                  readOnly={lockedFields.email}
+                  className={lockedFields.email
+                    ? readOnlyInputClass
+                    : "w-full rounded border border-border-gray bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-tiggets-lightgreen"}
+                  placeholder="JohnDoe@email.com..."
+                />
+                {!lockedFields.email && (
+                  <StatusBadge okText="Valid email address." failText="Please enter a valid email." state={EMAIL_REGEX.test(form.email.trim()) && emailAvailable !== false ? true : form.email ? false : null} />
+                )}
                 {fieldErrors.email && <p className="text-xs text-[#ff9f9f]">{fieldErrors.email}</p>}
               </div>
             </div>
 
             <div className="grid grid-cols-[130px_1fr] items-center gap-2">
-              <label htmlFor="firstName" className="text-sm text-background">First name*</label>
+              <label htmlFor="role" className="text-sm text-background">Role*</label>
               <div>
-                <input id="firstName" name="firstName" value={form.firstName} onChange={updateField} className="w-full rounded border border-border-gray bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-tiggets-lightgreen" placeholder="John..." />
+                <input
+                  id="role"
+                  name="role"
+                  value={form.role}
+                  readOnly
+                  className={readOnlyInputClass}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-[130px_1fr] items-center gap-2">
+              <label htmlFor="firstName" className="text-sm text-background">
+                First name{requiresName ? '*' : ''}
+              </label>
+              <div>
+                <input
+                  id="firstName"
+                  name="firstName"
+                  value={form.firstName}
+                  onChange={updateField}
+                  readOnly={lockedFields.firstName}
+                  className={lockedFields.firstName
+                    ? readOnlyInputClass
+                    : "w-full rounded border border-border-gray bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-tiggets-lightgreen"}
+                  placeholder="John..."
+                />
                 {fieldErrors.firstName && <p className="text-xs text-[#ff9f9f]">{fieldErrors.firstName}</p>}
               </div>
             </div>
 
             <div className="grid grid-cols-[130px_1fr] items-center gap-2">
-              <label htmlFor="lastName" className="text-sm text-background">Last name*</label>
+              <label htmlFor="lastName" className="text-sm text-background">
+                Last name{requiresName ? '*' : ''}
+              </label>
               <div>
-                <input id="lastName" name="lastName" value={form.lastName} onChange={updateField} className="w-full rounded border border-border-gray bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-tiggets-lightgreen" placeholder="Doe..." />
+                <input
+                  id="lastName"
+                  name="lastName"
+                  value={form.lastName}
+                  onChange={updateField}
+                  readOnly={lockedFields.lastName}
+                  className={lockedFields.lastName
+                    ? readOnlyInputClass
+                    : "w-full rounded border border-border-gray bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-tiggets-lightgreen"}
+                  placeholder="Doe..."
+                />
                 {fieldErrors.lastName && <p className="text-xs text-[#ff9f9f]">{fieldErrors.lastName}</p>}
               </div>
             </div>
@@ -424,7 +609,7 @@ export default function CreateAccountForm() {
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" onClick={() => router.push('/')} className="rounded bg-gray-400 px-5 py-2 text-sm font-semibold text-white transition hover:bg-gray-500 hover:cursor-pointer">Cancel</button>
           <button type="submit" disabled={isSubmitting} className="rounded bg-tiggets-lightgreen px-5 py-2 text-sm font-semibold text-white transition hover:cursor-pointer hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70">
-            {isSubmitting ? 'Registering...' : 'Register'}
+            {isSubmitting ? 'Registering...' : isInviteMode ? 'Complete Account' : 'Register'}
           </button>
         </div>
       </form>
