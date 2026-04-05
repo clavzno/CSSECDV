@@ -39,6 +39,7 @@ export default function ForgotPasswordForm() {
   const [step, setStep] = useState('email');
   const [email, setEmail] = useState('');
   const [hasMFA, setHasMFA] = useState(false);
+  const [requiresMfaPrompt, setRequiresMfaPrompt] = useState(true);
   const [verificationMode, setVerificationMode] = useState('mfa');
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState(['', '', '']);
@@ -77,6 +78,7 @@ export default function ForgotPasswordForm() {
       }
 
       setHasMFA(data.hasMFA || false);
+      setRequiresMfaPrompt(data.requiresMfaPrompt !== false);
       setVerificationMode(data.hasMFA ? 'mfa' : 'questions');
       setQuestions(data.securityQuestions || []);
 
@@ -106,8 +108,8 @@ export default function ForgotPasswordForm() {
         body: JSON.stringify({
           email: email.trim(),
           answers: !hasMFA ? answers.map((a) => a.trim()) : [],
-          mfaCode: hasMFA && verificationMode === 'mfa' ? mfaCode : '',
-          backupCode: hasMFA && verificationMode === 'backup' ? backupCode.trim().toUpperCase() : '',
+          mfaCode: hasMFA && requiresMfaPrompt && verificationMode === 'mfa' ? mfaCode : '',
+          backupCode: hasMFA && requiresMfaPrompt && verificationMode === 'backup' ? backupCode.trim().toUpperCase() : '',
         }),
       });
 
@@ -130,7 +132,7 @@ export default function ForgotPasswordForm() {
     setSuccess('');
 
     // Validate verification method based on MFA status
-    if (hasMFA) {
+    if (hasMFA && requiresMfaPrompt) {
       if (verificationMode === 'mfa') {
         if (!/^\d{6}$/.test(mfaCode.trim())) {
           setError('Please enter a valid 6-digit MFA code');
@@ -173,8 +175,8 @@ export default function ForgotPasswordForm() {
         body: JSON.stringify({
           email: email.trim(),
           answers: !hasMFA ? answers.map(a => a.trim()) : [],
-          mfaCode: hasMFA && verificationMode === 'mfa' ? mfaCode : '',
-          backupCode: hasMFA && verificationMode === 'backup' ? backupCode.trim().toUpperCase() : '',
+          mfaCode: hasMFA && requiresMfaPrompt && verificationMode === 'mfa' ? mfaCode : '',
+          backupCode: hasMFA && requiresMfaPrompt && verificationMode === 'backup' ? backupCode.trim().toUpperCase() : '',
           newPassword,
           confirmPassword,
         }),
@@ -278,10 +280,14 @@ export default function ForgotPasswordForm() {
         {step === 'verify' && (
           <div className="space-y-4">
             <p className="text-sm text-background">
-              {hasMFA ? 'Enter your authentication code or backup code to verify your identity' : 'Answer your security questions to verify your identity'}
+              {hasMFA && requiresMfaPrompt
+                ? 'Enter your authentication code or backup code to verify your identity'
+                : hasMFA
+                ? 'Trusted IP detected. Continue to proceed.'
+                : 'Answer your security questions to verify your identity'}
             </p>
 
-            {hasMFA && (
+            {hasMFA && requiresMfaPrompt && (
               <div className="space-y-3">
                 <div className="flex flex-wrap gap-4">
                   <label className="flex items-center gap-2 text-sm text-background">

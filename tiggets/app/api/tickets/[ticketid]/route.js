@@ -4,6 +4,7 @@ import { getCurrentSession } from '@/lib/rbac';
 import { createLog } from '@/lib/logger';
 import crypto from 'crypto'; 
 import { ObjectId } from 'mongodb'; 
+import { verifyUserMfa } from '@/lib/mfa';
 
 export async function PUT(request, { params }) {
     let session;
@@ -43,6 +44,25 @@ export async function PUT(request, { params }) {
 
         const existingTicket = await db.collection('tickets').findOne({ ticketid });
         if (!existingTicket) return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
+
+        const isDeletionAction = Boolean(updates.deleteReplyId || updates.deleteTicket === true);
+        if (session.role === 'manager' && isDeletionAction) {
+            const actingUser = await db.collection('users').findOne({ _id: new ObjectId(String(session.userId)) });
+            if (!actingUser) {
+                return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            }
+
+            const mfaResult = await verifyUserMfa({
+                db,
+                user: actingUser,
+                mfaCode: updates.mfaCode,
+                backupCode: updates.backupCode,
+            });
+
+            if (!mfaResult.ok) {
+                return NextResponse.json({ error: mfaResult.error, mfaRequired: true }, { status: 401 });
+            }
+        }
 
         const currentAssignedManager = existingTicket.assignedTo || 'N/A';
 

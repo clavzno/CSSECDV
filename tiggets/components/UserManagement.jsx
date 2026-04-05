@@ -56,24 +56,57 @@ export default function UserManagement({ role, users }) {
     setSelectedRole('');
   }
 
+  function openDeleteUsersModal() {
+    if (!isAdmin || selectedUsers.size === 0) return;
+    setShowDeleteUsersModal(true);
+  }
+
+  function closeDeleteUsersModal() {
+    setShowDeleteUsersModal(false);
+  }
+
+  function promptMfaCredentials() {
+    const useBackup = window.confirm('Use backup code? Click OK for backup code, Cancel for authenticator code.');
+    const code = window.prompt(useBackup ? 'Enter backup code:' : 'Enter 6-digit authentication code:');
+    if (!code) return null;
+
+    return useBackup
+      ? { mfaCode: '', backupCode: code.trim().toUpperCase() }
+      : { mfaCode: code.trim(), backupCode: '' };
+  }
+
   async function handleConfirmRoleChange() {
     if (!selectedRole || selectedUsers.size === 0) return;
 
     try {
       setIsSubmitting(true);
 
-      const response = await fetch('/api/user-management/change-role', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userIds: Array.from(selectedUsers),
-          role: selectedRole,
-        }),
-      });
+      const sendRequest = async (mfaPayload = { mfaCode: '', backupCode: '' }) => {
+        const response = await fetch('/api/user-management/change-role', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userIds: Array.from(selectedUsers),
+            role: selectedRole,
+            ...mfaPayload,
+          }),
+        });
 
-      const data = await response.json();
+        const data = await response.json();
+        return { response, data };
+      };
+
+      let { response, data } = await sendRequest();
+
+      if (response.status === 401 && data?.mfaRequired) {
+        const mfaPayload = promptMfaCredentials();
+        if (!mfaPayload) {
+          throw new Error('MFA is required to change user roles.');
+        }
+        ({ response, data } = await sendRequest(mfaPayload));
+      }
 
       if (!response.ok) {
         throw new Error(data?.error || 'Failed to change role.');
@@ -90,32 +123,37 @@ export default function UserManagement({ role, users }) {
     }
   }
 
-  function openDeleteUsersModal() {
-    if (!isAdmin || selectedUsers.size === 0) return;
-    setShowDeleteUsersModal(true);
-  }
-
-  function closeDeleteUsersModal() {
-    setShowDeleteUsersModal(false);
-  }
-
   async function handleConfirmDeleteUsers() {
     if (selectedUsers.size === 0) return;
 
     try {
       setIsSubmitting(true);
 
-      const response = await fetch('/api/user-management/delete-users', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userIds: Array.from(selectedUsers),
-        }),
-      });
+      const sendRequest = async (mfaPayload = { mfaCode: '', backupCode: '' }) => {
+        const response = await fetch('/api/user-management/delete-users', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userIds: Array.from(selectedUsers),
+            ...mfaPayload,
+          }),
+        });
 
-      const data = await response.json();
+        const data = await response.json();
+        return { response, data };
+      };
+
+      let { response, data } = await sendRequest();
+
+      if (response.status === 401 && data?.mfaRequired) {
+        const mfaPayload = promptMfaCredentials();
+        if (!mfaPayload) {
+          throw new Error('MFA is required to delete users.');
+        }
+        ({ response, data } = await sendRequest(mfaPayload));
+      }
 
       if (!response.ok) {
         throw new Error(data?.error || 'Failed to delete users.');

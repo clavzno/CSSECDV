@@ -4,11 +4,18 @@ import clientPromise from '@/lib/mongodb';
 import { verifyPassword } from '@/lib/crypto';
 import { createLog } from '@/lib/logger';
 import crypto from 'crypto';
+import {
+    verifyUserMfa,
+    isManagerMfaStillValid,
+    markManagerMfaVerified,
+    MANAGER_MFA_HOURS,
+} from '@/lib/mfa';
 
 export async function POST(request) {
     try {
-        const { username, password } = await request.json();
+        const { username, password, mfaCode, backupCode } = await request.json();
         const genericAuthError = 'Invalid username and/or password'; 
+        const deviceId = String(request.headers.get('x-device-id') || '').trim();
 
         const client = await clientPromise;
         const db = client.db('TicketingSystem');
@@ -82,6 +89,34 @@ export async function POST(request) {
             ? `Your last login attempt was ${user.lastLoginAttempt.status} on ${new Date(user.lastLoginAttempt.date).toLocaleString()}`
             : 'Welcome! This is your first time logging in.';
 
+        const role = String(user.role || '').toLowerCase();
+        const isAdmin = role === 'admin';
+        const isManager = role === 'manager';
+        const managerMfaValid = isManager && isManagerMfaStillValid(user, deviceId);
+        const requiresLoginMfa = isAdmin || (isManager && !managerMfaValid);
+
+        if ((isAdmin || isManager) && !user.mfaEnabled) {
+            return NextResponse.json({
+                error: 'MFA must be enabled for this role before login is allowed.',
+            }, { status: 403 });
+        }
+
+        if (requiresLoginMfa) {
+            const mfaResult = await verifyUserMfa({ db, user, mfaCode, backupCode });
+
+            if (!mfaResult.ok) {
+                return NextResponse.json({
+                    error: mfaResult.error,
+                    mfaRequired: true,
+                    challenge: 'login',
+                }, { status: 401 });
+            }
+
+            if (isManager && deviceId) {
+                await markManagerMfaVerified(db, user._id, deviceId);
+            }
+        }
+
         const cookieStore = await cookies();
 
         await usersCollection.updateOne(
@@ -96,7 +131,8 @@ export async function POST(request) {
         );
 
         const sessionId = crypto.randomBytes(32).toString('hex');
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const sessionHours = isManager ? MANAGER_MFA_HOURS : 24;
+        const expiresAt = new Date(Date.now() + sessionHours * 60 * 60 * 1000);
 
         await db.collection('sessions').insertOne({
             sessionId,
