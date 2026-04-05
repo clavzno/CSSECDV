@@ -5,6 +5,7 @@ import { ObjectId } from 'mongodb';
 
 // Cleaned up the imports to just pull exactly what we need
 import { hashPassword, verifyPassword } from '@/lib/crypto'; 
+import { createLog } from '@/lib/logger'; 
 
 function validatePassword(password) {
   const checks = {
@@ -38,6 +39,13 @@ export async function GET(request) {
 
         // ONLY send the question text to the frontend, NEVER the answerHash!
         const safeQuestions = user.securityQuestions.map(q => ({ question: q.question }));
+
+        await createLog({
+          userId: session.userId,
+          eventType: 'PASSWORD_CHANGE_ATTEMPT',
+          details: `${user.username} accessed the change password page.`,
+          priorityLevel: 'info',
+        });
 
         return NextResponse.json({ questions: safeQuestions }, { status: 200 });
     } catch (error) {
@@ -82,6 +90,12 @@ export async function POST(request) {
             
             if (!isCorrect) {
                 // If even one is wrong, reject the whole request to prevent brute-forcing
+                await createLog({
+                  userId: session.userId,
+                  eventType: 'PASSWORD_CHANGE_FAIL',
+                  details: `${user.username} failed to change password. Reason: Incorrect security answers.`,
+                  priorityLevel: 'warning',
+                });
                 return NextResponse.json({ error: 'One or more security answers are incorrect.' }, { status: 403 });
             }
         }
@@ -93,6 +107,13 @@ export async function POST(request) {
             { _id: new ObjectId(session.userId) },
             { $set: { passwordHash: newPasswordHash, updatedAt: new Date() } }
         );
+
+        await createLog({
+          userId: session.userId,
+          eventType: 'PASSWORD_CHANGE_SUCCESS',
+          details: `${user.username} successfully changed their password.`,
+          priorityLevel: 'info',
+        });
 
         return NextResponse.json({ message: 'Password updated successfully' }, { status: 200 });
     } catch (error) {

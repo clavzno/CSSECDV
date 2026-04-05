@@ -36,6 +36,12 @@ export async function GET(request) {
 
     // Always return the same message for security (prevent email enumeration)
     if (!user) {
+      await createLog({
+        userId: null, // No user found, so no userId
+        eventType: 'PASSWORD_RESET_REQUEST',
+        details: `Password reset requested for non-existent email: ${email}`,
+        priorityLevel: 'info',
+      });
       return NextResponse.json({
         message: 'If an account exists, a password reset email has been sent.',
         hasAccount: false
@@ -44,6 +50,13 @@ export async function GET(request) {
 
     // Check if user has MFA enabled (future feature)
     const hasMFA = user.mfaEnabled || false;
+
+    await createLog({
+      userId: user._id,
+      eventType: 'PASSWORD_RESET_REQUEST',
+      details: `${user.username} requested a password reset.`,
+      priorityLevel: 'info',
+    });
 
     return NextResponse.json({
       message: 'If an account exists, a password reset email has been sent.',
@@ -87,6 +100,14 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
 
+    // Log the password reset attempt
+    await createLog({
+      userId: user._id,
+      eventType: 'PASSWORD_RESET_ATTEMPT',
+      details: `${user.username} attempted to reset password using ${verificationMethod} verification.`,
+      priorityLevel: 'info',
+    });
+
     let verificationPassed = false;
 
     if (verificationMethod === 'mfa') {
@@ -110,8 +131,8 @@ export async function POST(request) {
 
     if (!verificationPassed) {
       await createLog({
-        userId: user.username,
-        actionType: 'PASSWORD_RESET_FAIL',
+        userId: user._id,
+        eventType: 'PASSWORD_RESET_FAIL',
         details: `${user.username} failed to reset password. Reason: Incorrect verification.`,
         priorityLevel: 'warning',
       });
@@ -133,8 +154,8 @@ export async function POST(request) {
     );
 
     await createLog({
-      userId: user.username,
-      actionType: 'PASSWORD_RESET_SUCCESS',
+      userId: user._id,
+      eventType: 'PASSWORD_RESET_SUCCESS',
       details: `${user.username} successfully reset their password.`,
       priorityLevel: 'info',
     });
