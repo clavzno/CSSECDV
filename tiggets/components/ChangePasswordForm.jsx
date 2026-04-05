@@ -33,8 +33,12 @@ function getStrengthScore(password) {
 
 export default function ChangePasswordForm() {
   const router = useRouter();
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [verificationMode, setVerificationMode] = useState('mfa');
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState(["", "", ""]);
+  const [mfaCode, setMfaCode] = useState("");
+  const [backupCode, setBackupCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState({ type: "", message: "" });
@@ -51,7 +55,9 @@ export default function ChangePasswordForm() {
         const res = await fetch("/api/auth/change-password");
         const data = await res.json();
         
-        if (res.ok && data.questions) {
+        if (res.ok) {
+          setMfaEnabled(Boolean(data.mfaEnabled));
+          setVerificationMode(data.mfaEnabled ? 'mfa' : 'questions');
           setQuestions(data.questions);
         } else {
           setStatus({ type: "error", message: "Failed to load security questions." });
@@ -76,8 +82,14 @@ export default function ChangePasswordForm() {
     setStatus({ type: "", message: "" });
 
     // 1. Basic Validation
-    if (answers.some((ans) => ans.trim() === "")) {
+    if (!mfaEnabled && answers.some((ans) => ans.trim() === "")) {
       return setStatus({ type: "error", message: "Please answer all security questions." });
+    }
+    if (mfaEnabled && verificationMode === 'mfa' && !/^\d{6}$/.test(mfaCode.trim())) {
+      return setStatus({ type: "error", message: "Please enter a valid 6-digit MFA code." });
+    }
+    if (mfaEnabled && verificationMode === 'backup' && !backupCode.trim()) {
+      return setStatus({ type: "error", message: "Please enter a backup code." });
     }
     if (!passwordsMatch) {
       return setStatus({ type: "error", message: "New passwords do not match." });
@@ -91,7 +103,14 @@ export default function ChangePasswordForm() {
       const res = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers, newPassword }),
+        body: JSON.stringify({
+          newPassword,
+          ...(mfaEnabled
+            ? verificationMode === 'mfa'
+              ? { mfaCode, backupCode: '' }
+              : { backupCode, mfaCode: '' }
+            : { answers }),
+        }),
       });
 
       const data = await res.json();
@@ -101,6 +120,8 @@ export default function ChangePasswordForm() {
         setNewPassword("");
         setConfirmPassword("");
         setAnswers(["", "", ""]);
+        setMfaCode("");
+        setBackupCode("");
       } else {
         setStatus({ type: "error", message: data.error || "Failed to update password." });
       }
@@ -123,10 +144,70 @@ export default function ChangePasswordForm() {
       <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
         <form onSubmit={handleSubmit} className="space-y-6">
           
-          {/* Security Questions Section */}
+          {/* Identity Verification Section */}
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-zinc-800 border-b pb-2">Security Questions</h2>
-            {questions.length > 0 ? (
+            <h2 className="text-lg font-semibold text-zinc-800 border-b pb-2">
+              {mfaEnabled ? 'Multi-Factor Authentication' : 'Security Questions'}
+            </h2>
+
+            {mfaEnabled ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm text-zinc-700">
+                    <input
+                      type="radio"
+                      name="verificationMode"
+                      value="mfa"
+                      checked={verificationMode === 'mfa'}
+                      onChange={(e) => setVerificationMode(e.target.value)}
+                      className="h-4 w-4 accent-blue-600"
+                    />
+                    Authentication Code
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-zinc-700">
+                    <input
+                      type="radio"
+                      name="verificationMode"
+                      value="backup"
+                      checked={verificationMode === 'backup'}
+                      onChange={(e) => setVerificationMode(e.target.value)}
+                      className="h-4 w-4 accent-blue-600"
+                    />
+                    Backup Code
+                  </label>
+                </div>
+
+                {verificationMode === 'mfa' ? (
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 mb-1">
+                      Authentication Code
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={mfaCode}
+                      onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      className="w-full rounded-md border border-zinc-300 p-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="Enter 6-digit code"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 mb-1">
+                      Backup Code
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={backupCode}
+                      onChange={(e) => setBackupCode(e.target.value.toUpperCase())}
+                      className="w-full rounded-md border border-zinc-300 p-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="Enter one backup code"
+                    />
+                  </div>
+                )}
+              </div>
+            ) : questions.length > 0 ? (
               questions.map((q, index) => (
                 <div key={index}>
                   <label className="block text-sm font-medium text-zinc-700 mb-1">
@@ -227,7 +308,7 @@ export default function ChangePasswordForm() {
 
           <button
             type="submit"
-            disabled={questions.length === 0 || !passwordsMatch || strength.score < 3}
+            disabled={(!mfaEnabled && questions.length === 0) || !passwordsMatch || strength.score < 3}
             className="w-full rounded-md bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Update Password
