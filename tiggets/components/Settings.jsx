@@ -24,7 +24,7 @@ export default async function Settings({ session }) {
     const username = user?.username ?? "N/A";
     const email = user?.emailLower ?? "N/A";
     const role = user?.role 
-        ? user.role.charAt(0).toUpperCase() + user.role.slice(1) // Capitalize the role just like in Profile
+        ? user.role.charAt(0).toUpperCase() + user.role.slice(1) 
         : "N/A";
 
     return (
