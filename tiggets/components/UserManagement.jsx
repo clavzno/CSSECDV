@@ -7,7 +7,7 @@ import DeleteUsersModal from '@/components/DeleteUsersModal';
 
 import { useRouter } from 'next/navigation';
 
-export default function UserManagement({ role, session, users }) {
+export default function UserManagement({ role, users }) {
   // authorization is checked in page.tsx
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -290,7 +290,7 @@ export default function UserManagement({ role, session, users }) {
                           </span>
                         </div>
                       ) : user.role?.toLowerCase() !== 'admin' ? (
-                        <Link href={`/user-management/${user.id.replace('#', '')}`}>
+                        <Link href={`/user-management/${user.mongoId}`}>
                           <button className="bg-tiggets-lightgreen hover:opacity-90 text-white px-5 py-1.5 rounded text-xs font-semibold shadow-sm transition-all cursor-pointer">
                             Manage
                           </button>
