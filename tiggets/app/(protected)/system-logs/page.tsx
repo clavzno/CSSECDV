@@ -4,8 +4,6 @@ import { getCurrentSession } from "@/lib/rbac";
 import clientPromise from '@/lib/mongodb';
 // content
 import SystemLogs from "@/components/SystemLogs";
-// rbac 
-import isAuthorized from '@/lib/rbac';
 import { resolveUsernameFromUserId } from '@/lib/resolveUsernameFromUserId';
 
 export default async function SystemLogsPage() {
@@ -64,22 +62,7 @@ export default async function SystemLogsPage() {
     role: String(rawSession.role ?? ''),
   };
 
-  if (session.role?.toLowerCase() !== "admin") {
-    return null;
-  }
-
   const logs = await getSystemLogs();
-
-  const currentPath = '/system-logs';
-  if (!isAuthorized(session.role.toLowerCase(), currentPath)) {
-    return (
-      <main className="ml-56 min-h-screen bg-background p-6">
-        <h1 className="mb-8 text-3xl font-bold">
-          You are not authorized to view this page.
-        </h1>
-      </main>
-    );
-  }
 
   return (
     <main className="ml-56 flex-1 min-w-0 overflow-y-auto p-8">

@@ -12,6 +12,8 @@ export const ROLES = {
 // Maps which roles are allowed to visit which paths
 export const ROUTE_PERMISSIONS = {
   '/dashboard': [ROLES.ADMIN, ROLES.MANAGER, ROLES.CUSTOMER],
+  '/profile': [ROLES.ADMIN, ROLES.MANAGER, ROLES.CUSTOMER],
+  '/settings': [ROLES.ADMIN, ROLES.MANAGER, ROLES.CUSTOMER],
   '/system-logs': [ROLES.ADMIN],
   '/user-management': [ROLES.ADMIN, ROLES.MANAGER],
   '/tickets': [ROLES.ADMIN, ROLES.MANAGER, ROLES.CUSTOMER],
@@ -49,9 +51,28 @@ export async function getCurrentSession() {
 
 // 4. Centralized Authorization Check
 export default function isAuthorized(userRole, currentPath) {
+  const normalizedRole = String(userRole || '').toLowerCase();
+  const normalizedPath = normalizePathForAuthorization(currentPath);
+
   // If the path isn't strictly defined, default to closed (Fail Securely)
-  const allowedRoles = ROUTE_PERMISSIONS[currentPath];
+  const allowedRoles = ROUTE_PERMISSIONS[normalizedPath];
   if (!allowedRoles) return false;
   
-  return allowedRoles.includes(userRole);
+  return allowedRoles.includes(normalizedRole);
+}
+
+export function normalizePathForAuthorization(pathname) {
+  const rawPath = String(pathname || '').trim();
+  if (!rawPath || rawPath === '/') return '/';
+
+  const pathOnly = rawPath.split('?')[0].replace(/\/+$/, '') || '/';
+
+  if (pathOnly === '/dashboard' || pathOnly.startsWith('/dashboard/')) return '/dashboard';
+  if (pathOnly === '/profile' || pathOnly.startsWith('/profile/')) return '/profile';
+  if (pathOnly === '/settings' || pathOnly.startsWith('/settings/')) return '/settings';
+  if (pathOnly === '/tickets' || pathOnly.startsWith('/tickets/')) return '/tickets';
+  if (pathOnly === '/user-management' || pathOnly.startsWith('/user-management/')) return '/user-management';
+  if (pathOnly === '/system-logs' || pathOnly.startsWith('/system-logs/')) return '/system-logs';
+
+  return pathOnly;
 }

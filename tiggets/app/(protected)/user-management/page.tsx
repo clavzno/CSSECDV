@@ -5,8 +5,6 @@ import { getCurrentSession } from '@/lib/rbac';
 import clientPromise from '@/lib/mongodb';
 // content
 import UserManagement from '@/components/UserManagement';
-// rbac
-import isAuthorized from '@/lib/rbac';
 
 export default async function UserManagementPage() {
     const rawSession = await getCurrentSession();
@@ -24,18 +22,6 @@ export default async function UserManagementPage() {
 
     const client = await clientPromise;
     const db = client.db('TicketingSystem');
-
-    // check if authorized
-    const currentPath = '/user-management';
-    if (!isAuthorized(session.role.toLowerCase(), currentPath)) {
-        return (
-            <main className="ml-56 min-h-screen bg-background p-6">
-                <h1 className="mb-8 text-3xl font-bold">
-                    You are not authorized to view this page.
-                </h1>
-            </main>
-        );
-    }
 
     const users = await db.collection('users').find({}).toArray();
     const tickets = await db.collection('tickets').find({}).toArray();

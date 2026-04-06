@@ -1,9 +1,10 @@
 // this layout applies to every single (protected) page,
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 
 // check role
-import { getCurrentSession } from '@/lib/rbac';
+import isAuthorized, { getCurrentSession } from '@/lib/rbac';
 
 // content
 import Sidebar from '@/components/Sidebar';
@@ -21,6 +22,13 @@ export default async function ProtectedLayout({
 
     if (!session) {
         redirect('/');
+    }
+
+    const headerStore = await headers();
+    const currentPath = headerStore.get('x-current-path') || '';
+
+    if (!isAuthorized(session.role, currentPath)) {
+        redirect('/dashboard');
     }
 
     return (

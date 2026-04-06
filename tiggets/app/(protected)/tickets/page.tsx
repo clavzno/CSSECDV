@@ -4,8 +4,6 @@ import clientPromise from '@/lib/mongodb';
 // content
 import ManagerAdminTickets from '@/components/ManagerAdminTickets';
 import CreateTicket from '@/components/CreateTicket';
-// rbac
-import isAuthorized from '@/lib/rbac';
 import { getCurrentSession } from '@/lib/rbac';
 import { resolveUsernameFromUserId } from '@/lib/resolveUsernameFromUserId';
 
@@ -154,17 +152,6 @@ export default async function TicketsPage() {
   }
 
   const tickets = await getTicketsForRole(role, safeSession);
-
-  const currentPath = '/tickets';
-  if (!isAuthorized(session.role.toLowerCase(), currentPath)) {
-    return (
-      <main className="ml-56 min-h-screen bg-background p-6">
-        <h1 className="mb-8 text-3xl font-bold">
-          You are not authorized to view this page.
-        </h1>
-      </main>
-    );
-  }
 
   return (
     <div className="flex h-screen bg-background font-text text-foreground">

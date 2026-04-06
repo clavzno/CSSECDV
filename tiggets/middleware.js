@@ -4,6 +4,8 @@ export function middleware(request) {
   // 1. Grab the session cookie we set in the login API
   const sessionCookie = request.cookies.get('session');
   const { pathname } = request.nextUrl;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-current-path', pathname);
 
   // 2. Define our public routes (Login, and eventually Registration)
   const publicRoutes = ['/', '/register', '/CreateAccount', '/ForgotPassword', '/MFASetup'];
@@ -19,7 +21,11 @@ export function middleware(request) {
   // A stale cookie can exist even when the DB session is invalid/expired.
 
   // 5. Allow the request to proceed
-  return NextResponse.next();
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 }
 
 // 6. The Matcher: This tells Next.js exactly which routes this middleware should run on.
