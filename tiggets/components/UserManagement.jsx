@@ -9,7 +9,8 @@ import PendingUsersModal from '@/components/PendingUsersModal';
 
 import { useRouter } from 'next/navigation';
 
-export default function UserManagement({ role, users, pendingUsers }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export default function UserManagement({ role, users, session, pendingUsers }) {
   // authorization is checked in page.tsx
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
