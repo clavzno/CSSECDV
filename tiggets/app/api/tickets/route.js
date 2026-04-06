@@ -12,7 +12,7 @@ export async function POST(request) {
         const payload = await request.json();
         const { subject, type, body, attachments = [] } = payload; 
 
-        // --- 🚨 CRITICAL CHECK: Tampering ---
+        //Check for Tampering 
         if (payload.userId && payload.userId !== session.userId) {
             await createLog({
                 userId: session.userId,
@@ -27,7 +27,7 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Forbidden Tampering' }, { status: 403 });
         }
 
-        // --- ERROR CHECK: Validation ---
+        //ERROR CHECK: Validation
         if (!subject || !type || !body) {
             await createLog({
                 userId: session.userId,
@@ -55,7 +55,6 @@ export async function POST(request) {
             createdBy: session.userId,
             createdAt: new Date(),
             updatedAt: new Date(),
-            // Unified naming structure right here
             assignedTo: null, 
             attachments: attachments,
             replies: [],
@@ -65,7 +64,7 @@ export async function POST(request) {
         
         await db.collection('tickets').insertOne(newTicket);
 
-        // --- INFO CHECK ---
+        //INFO CHECK 
         await createLog({
             userId: session.userId,
             actionType: 'TICKET_CREATED',

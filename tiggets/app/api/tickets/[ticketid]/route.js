@@ -18,12 +18,12 @@ export async function PUT(request, { params }) {
         
         const incomingReplyId = updates.replyId || 'N/A';
         
-        // --- SECURE FILE LOGGING ---
+        //SECURE FILE LOGGING
         // Keep the raw data for the tickets collection, but strip out the base64 string for the logs!
         const incomingAttachments = updates.attachments || [];
         const safeLogAttachments = incomingAttachments.map(att => att.name || att || 'Unknown File');
 
-        // --- ERROR CHECK: Validation ---
+        //ERROR CHECK: Validation
         if (Object.keys(updates).length === 0 || (updates.status !== undefined && updates.status.trim() === '')) {
             const isStatusChange = updates.status !== undefined;
             await createLog({
@@ -34,7 +34,7 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'error',
                 assignedTo: 'N/A', 
                 replyTo: incomingReplyId,
-                attachments: safeLogAttachments // <-- UPDATED
+                attachments: safeLogAttachments 
             });
             return NextResponse.json({ error: 'Invalid update data' }, { status: 400 });
         }
@@ -66,7 +66,7 @@ export async function PUT(request, { params }) {
 
         const currentAssignedManager = existingTicket.assignedTo || 'N/A';
 
-        // --- 🚨 CRITICAL CHECK: Security & Ownership ---
+        //CRITICAL CHECK: Security & Ownership 
         if (session.role === 'customer' && existingTicket.createdBy.toString() !== session.userId.toString()) {
             const actionType = updates.status ? 'TICKET_STATUS_CHANGE' : 'TICKET_EDITED';
             await createLog({
@@ -77,12 +77,12 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'critical',
                 assignedTo: currentAssignedManager,
                 replyTo: incomingReplyId,
-                attachments: safeLogAttachments // <-- UPDATED
+                attachments: safeLogAttachments 
             });
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
-        // --- 🛡️ SECURITY: VALIDATE MANAGER ASSIGNMENT ---
+        //SECURITY: VALIDATE MANAGER ASSIGNMENT 
         if (updates.assignedTo) {
             try {
                 const targetUser = await db.collection('users').findOne({ 
@@ -107,9 +107,7 @@ export async function PUT(request, { params }) {
             }
         }
 
-        // ==========================================
-        // 🛡️ SECURITY: VALIDATE REPLY OWNERSHIP
-        // ==========================================
+        // VALIDATE REPLY OWNERSHIP
         const actionReplyId = updates.replyId || updates.deleteReplyId;
         if (actionReplyId) {
             const targetReply = existingTicket.replies?.find(r => r.replyId === actionReplyId);
@@ -129,9 +127,7 @@ export async function PUT(request, { params }) {
             }
         }
 
-        // ==========================================
-        // 💬 NEW REPLY (FLAT CHAT)
-        // ==========================================
+        //NEW REPLY (FLAT CHAT)
         if (updates.newMessage) {
             const newReplyId = `rep_${crypto.randomUUID()}`;
             
@@ -142,7 +138,7 @@ export async function PUT(request, { params }) {
                 timestamp: new Date(),
                 editedAt: null,
                 editedBy: null,
-                attachments: incomingAttachments // <-- Keep the full data payload for the DB ticket object
+                attachments: incomingAttachments 
             };
 
             await db.collection('tickets').updateOne(
@@ -161,21 +157,18 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
                 replyTo: newReplyId, 
-                attachments: safeLogAttachments // <-- UPDATED
+                attachments: safeLogAttachments 
             });
 
             return NextResponse.json({ message: 'Reply added successfully', reply: newReply }, { status: 200 });
         }
 
-        // ==========================================
-        // ✏️ EDITING, DELETING, OR TICKET STATUS
-        // ==========================================
+        // EDITING, DELETING, OR TICKET STATUS
         
         // Ensure log timestamp perfectly matches database timestamp
         const actionTimestamp = new Date(); 
 
         if (updates.replyId && updates.message) {
-            // EDIT SPECIFIC REPLY
             await db.collection('tickets').updateOne(
                 { ticketid, "replies.replyId": updates.replyId },
                 { 
@@ -188,7 +181,6 @@ export async function PUT(request, { params }) {
                 }
             );
         } else if (updates.deleteReplyId) {
-            // DELETE SPECIFIC REPLY
             await db.collection('tickets').updateOne(
                 { ticketid },
                 { 
@@ -208,10 +200,8 @@ export async function PUT(request, { params }) {
             });
             return NextResponse.json({ message: 'Reply deleted successfully' }, { status: 200 });
         } else {
-            // STANDARD TICKET-LEVEL UPDATES
             const setPayload = { ...updates, updatedAt: new Date() };
             
-            // NEW: If they edit the main starting post (body/subject), stamp it with edit fields
             if (updates.body || updates.subject) {
                 setPayload.editedAt = actionTimestamp;
                 setPayload.editedBy = session.userId;
@@ -223,7 +213,7 @@ export async function PUT(request, { params }) {
             );
         }
 
-        // --- INFO LOGGING FOR STANDARD UPDATES ---
+        //INFO LOGGING FOR STANDARD UPDATES
         if (updates.status) {
             await createLog({
                 userId: session.userId,
@@ -233,7 +223,7 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
                 replyTo: 'N/A', 
-                attachments: safeLogAttachments // <-- UPDATED
+                attachments: safeLogAttachments
             });
         } else if (updates.replyId) {
             await createLog({
@@ -244,7 +234,7 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
                 replyTo: updates.replyId, 
-                attachments: safeLogAttachments, // <-- UPDATED
+                attachments: safeLogAttachments,
                 editedAt: actionTimestamp, 
                 editedBy: session.userId
             });
@@ -257,7 +247,7 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'info',
                 assignedTo: updates.assignedTo, 
                 replyTo: 'N/A', 
-                attachments: safeLogAttachments // <-- UPDATED
+                attachments: safeLogAttachments
             });
         } else {
             await createLog({
@@ -268,7 +258,7 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
                 replyTo: 'N/A', 
-                attachments: safeLogAttachments, // <-- UPDATED
+                attachments: safeLogAttachments,
                 ...(updates.body || updates.subject ? { editedAt: actionTimestamp, editedBy: session.userId } : {})
             });
         }
