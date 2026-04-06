@@ -108,6 +108,7 @@ export async function POST(request) {
         lastName: challenge.lastName,
         role: 'customer',
         passwordHash: challenge.passwordHash,
+        passwordChangedAt: createdAt,
         securityQuestions: challenge.securityQuestions,
         mfaEnabled: true,
         mfaSecretEncrypted: challenge.tempSecretEncrypted,

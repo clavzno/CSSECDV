@@ -2,6 +2,7 @@ import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import AdminProfileEditor from '@/components/AdminProfileEditor';
 import CustomerProfileEditor from '@/components/CustomerProfileEditor';
+import MfaSettingsPanel from '@/components/MfaSettingsPanel';
 
 export default async function Settings({ session }) {
     const client = await clientPromise;
@@ -100,12 +101,16 @@ export default async function Settings({ session }) {
 
                     <div className="border-t border-zinc-100 pt-4">
                         <p className="mb-2 text-sm font-medium text-zinc-500">Security</p>
-                        <a
-                            href="/settings/change-password"
-                            className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2"
-                        >
-                            Change Password
-                        </a>
+                        <div className="space-y-4">
+                            <a
+                                href="/settings/change-password"
+                                className="inline-flex items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2"
+                            >
+                                Change Password
+                            </a>
+
+                            <MfaSettingsPanel />
+                        </div>
                     </div>
                 </div>
             </div>

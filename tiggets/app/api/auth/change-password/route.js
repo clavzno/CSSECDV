@@ -135,11 +135,12 @@ export async function POST(request) {
             return NextResponse.json({ error: 'User data corrupted' }, { status: 500 });
         }
 
-        // --- NEW: Requirement 2.1.11 (1-Day Old Passwords) ---
-        if (user.updatedAt) {
+        // Enforce cooldown against password-specific timestamp, not generic profile updates.
+        const lastPasswordChangedAt = new Date(user.passwordChangedAt).getTime();
+        if (Number.isFinite(lastPasswordChangedAt)) {
             const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-            const timeSinceLastChange = Date.now() - new Date(user.updatedAt).getTime();
-            
+            const timeSinceLastChange = Date.now() - lastPasswordChangedAt;
+
             if (timeSinceLastChange < ONE_DAY_MS) {
                 await createLog({
                     userId: session.userId,
@@ -168,32 +169,12 @@ export async function POST(request) {
         }
 
         // --- Existing MFA / Identity Verification ---
-        const userRole = String(user.role || '').toLowerCase();
-        const customerRequiresIpMfa = userRole === 'customer' && !isCustomerIpTrusted(user, clientIp, 'password_change');
-
-        if (customerRequiresIpMfa && !user.mfaEnabled) {
-            return NextResponse.json({ error: 'MFA must be enabled for customer password changes.' }, { status: 403 });
-        }
-
-        if (userRole === 'customer') {
-            if (customerRequiresIpMfa) {
-                const mfaResult = await verifyUserMfa({ db, user, mfaCode, backupCode });
-                if (!mfaResult.ok) {
-                    return NextResponse.json({ error: mfaResult.error }, { status: 403 });
-                }
-                await markCustomerIpTrusted(db, user._id, clientIp, 'password_change');
-            }
-        } else if (user.mfaEnabled) {
-            const mfaResult = await verifyUserMfa({ db, user, mfaCode, backupCode });
-            if (!mfaResult.ok) {
-                return NextResponse.json({ error: mfaResult.error }, { status: 403 });
-            }
-        } else {
+        async function verifySecurityQuestions() {
             if (!Array.isArray(answers) || answers.length !== 3) {
-                return NextResponse.json({ error: 'All security question answers are required.' }, { status: 400 });
+                return { ok: false, error: 'All security question answers are required.', status: 400 };
             }
             if (!Array.isArray(user.securityQuestions) || user.securityQuestions.length !== 3) {
-                return NextResponse.json({ error: 'Security questions are not configured for this account.' }, { status: 400 });
+                return { ok: false, error: 'Security questions are not configured for this account.', status: 400 };
             }
 
             for (let i = 0; i < user.securityQuestions.length; i++) {
@@ -203,12 +184,42 @@ export async function POST(request) {
                 if (!isCorrect) {
                     await createLog({
                       userId: session.userId,
-                      eventType: 'PASSWORD_CHANGE_FAIL', // Matches your existing logger type
+                      eventType: 'PASSWORD_CHANGE_FAIL',
                       details: `${user.username} failed to change password. Reason: Incorrect security answers.`,
                       priorityLevel: 'warning',
                     });
-                    return NextResponse.json({ error: 'One or more security answers are incorrect.' }, { status: 403 });
+                    return { ok: false, error: 'One or more security answers are incorrect.', status: 403 };
                 }
+            }
+
+            return { ok: true };
+        }
+
+        const userRole = String(user.role || '').toLowerCase();
+        const customerRequiresIpMfa = userRole === 'customer' && !isCustomerIpTrusted(user, clientIp, 'password_change');
+
+        if (userRole === 'customer') {
+            if (user.mfaEnabled && customerRequiresIpMfa) {
+                const mfaResult = await verifyUserMfa({ db, user, mfaCode, backupCode });
+                if (!mfaResult.ok) {
+                    return NextResponse.json({ error: mfaResult.error }, { status: 403 });
+                }
+                await markCustomerIpTrusted(db, user._id, clientIp, 'password_change');
+            } else if (!user.mfaEnabled) {
+                const questionResult = await verifySecurityQuestions();
+                if (!questionResult.ok) {
+                    return NextResponse.json({ error: questionResult.error }, { status: questionResult.status });
+                }
+            }
+        } else if (user.mfaEnabled) {
+            const mfaResult = await verifyUserMfa({ db, user, mfaCode, backupCode });
+            if (!mfaResult.ok) {
+                return NextResponse.json({ error: mfaResult.error }, { status: 403 });
+            }
+        } else {
+            const questionResult = await verifySecurityQuestions();
+            if (!questionResult.ok) {
+                return NextResponse.json({ error: questionResult.error }, { status: questionResult.status });
             }
         }
 
@@ -222,6 +233,7 @@ export async function POST(request) {
                 $set: { 
                     passwordHash: newPasswordHash, 
                     passwordHistory: newHistory, // Update history array
+                    passwordChangedAt: new Date(),
                     updatedAt: new Date() 
                 } 
             }

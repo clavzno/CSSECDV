@@ -8,8 +8,8 @@ export const ROLES = {
   CUSTOMER: 'customer',
 };
 
-// 2. Define Route Permissions (Optional, but highly recommended)
-// This maps which roles are allowed to visit which paths
+// 2. Define Route Permissions
+// Maps which roles are allowed to visit which paths
 export const ROUTE_PERMISSIONS = {
   '/dashboard': [ROLES.ADMIN, ROLES.MANAGER, ROLES.CUSTOMER],
   '/system-logs': [ROLES.ADMIN],

@@ -253,6 +253,7 @@ export async function POST(request) {
         $set: {
           passwordHash: newPasswordHash,
           passwordHistory: newHistory, 
+          passwordChangedAt: new Date(),
           updatedAt: new Date(),
           failedLoginAttempts: 0,
           lockedUntil: null,
