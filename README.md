@@ -9,3 +9,5 @@ prerequisites
 to run the app 
 1. `cd tiggets` (make sure to always run npm commands inside this folder)
 2. `npm.cmd run dev` or `npm run dev`
+
+ 
