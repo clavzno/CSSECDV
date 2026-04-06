@@ -37,6 +37,7 @@ function normalizeSecurityQuestions(securityQuestions) {
 function buildBaseUserUpdate(normalized) {
   return {
     passwordHash: hashPassword(normalized.password),
+    passwordHistory: [hashPassword(normalized.password)],
     securityQuestions: normalizeSecurityQuestions(normalized.securityQuestions),
     mfaEnabled: normalized.enableMFA,
     updatedAt: new Date(),
@@ -288,6 +289,7 @@ export async function POST(request) {
           {
             $set: {
               passwordHash: hashPassword(normalized.password),
+              passwordHistory: [hashPassword(normalized.password)], 
               securityQuestions: normalizeSecurityQuestions(normalized.securityQuestions),
               mfaEnabled: false,
               mfaSetupTokenHash: tokenHash,
@@ -397,6 +399,7 @@ export async function POST(request) {
       lastName: normalized.lastName,
       role: 'customer',
       passwordHash: hashPassword(normalized.password),
+      passwordHistory: [hashPassword(normalized.password)], // <-- NEW: Initialize history array (Req 2.1.10)
       securityQuestions: normalizeSecurityQuestions(normalized.securityQuestions),
       enableMFA: normalized.enableMFA,
       createdAt,
@@ -417,6 +420,7 @@ export async function POST(request) {
         lastName: normalized.lastName,
         role: 'customer',
         passwordHash: hashPassword(normalized.password),
+        passwordHistory: [hashPassword(normalized.password)],
         securityQuestions: normalizeSecurityQuestions(normalized.securityQuestions),
         mfaEnabled: false,
         createdAt,

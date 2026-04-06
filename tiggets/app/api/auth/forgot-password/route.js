@@ -32,7 +32,6 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const email = searchParams.get('email')?.trim();
 
-    // --- NEW: Log Validation Failure (Requirement 2.4.5) ---
     if (!email || !EMAIL_REGEX.test(email)) {
       await createLog({
         userId: 'Unauthenticated',
@@ -50,7 +49,6 @@ export async function GET(request) {
 
     const user = await usersCollection.findOne({ emailLower: email.toLowerCase() });
 
-    // Always return the same message for security (Requirement 2.1.4: prevent email enumeration)
     if (!user) {
       await createLog({
         userId: 'Unauthenticated',
@@ -64,7 +62,6 @@ export async function GET(request) {
       });
     }
 
-    // Check if user has MFA enabled
     const hasMFA = Boolean(user.mfaEnabled);
     const userRole = String(user.role || '').toLowerCase();
     const requiresMfaPrompt = userRole === 'admin'
@@ -125,7 +122,6 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
 
-    // Determine verification method based on user's MFA status
     const usesMFA = Boolean(user.mfaEnabled);
     const userRole = String(user.role || '').toLowerCase();
     const customerIpTrusted = userRole === 'customer' && isCustomerIpTrusted(user, clientIp, 'password_reset');
@@ -141,7 +137,6 @@ export async function POST(request) {
     });
 
     let verificationPassed = false;
-
     const verificationOnly = !newPassword && !confirmPassword;
 
     if (userRole === 'customer') {
@@ -152,7 +147,6 @@ export async function POST(request) {
         if (!verificationPassed) {
           return NextResponse.json({ error: mfaResult.error }, { status: 401 });
         }
-
         await markCustomerIpTrusted(db, user._id, clientIp, 'password_reset');
       } else {
         verificationPassed = true;
@@ -165,12 +159,10 @@ export async function POST(request) {
         return NextResponse.json({ error: mfaResult.error }, { status: 401 });
       }
     } else {
-      // Verify security questions
       if (!Array.isArray(user.securityQuestions) || user.securityQuestions.length !== 3 || !Array.isArray(answers) || answers.length !== 3) {
         return NextResponse.json({ error: 'Invalid security questions' }, { status: 400 });
       }
 
-      // timingSafeEqual is utilized inside verifyPassword to prevent timing attacks (Requirement 2.1.4)
       verificationPassed = true;
       for (let i = 0; i < user.securityQuestions.length; i++) {
         const providedAnswer = String(answers[i] || '').trim().toLowerCase();
@@ -192,7 +184,6 @@ export async function POST(request) {
         });
         return NextResponse.json({ error: 'Verification failed' }, { status: 401 });
       }
-
       return NextResponse.json({ message: 'Verification successful' }, { status: 200 });
     }
 
@@ -237,12 +228,31 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Verification failed' }, { status: 401 });
     }
 
+    // Prevents Password Reuse
+    const passwordHistory = Array.isArray(user.passwordHistory) ? user.passwordHistory : [user.passwordHash];
+
+    for (const oldHash of passwordHistory) {
+      if (oldHash && verifyPassword(newPassword, oldHash)) {
+        await createLog({
+          userId: user._id,
+          actionType: 'FORGOT_PWD_VALIDATION_FAIL',
+          details: `${user.username} failed reset: Attempted to reuse a historical password.`,
+          priorityLevel: 'warning'
+        });
+        return NextResponse.json({ error: 'You cannot reuse any of your last 5 passwords.' }, { status: 400 });
+      }
+    }
+
+    // Finalize Update 
     const newPasswordHash = hashPassword(newPassword);
+    const newHistory = [newPasswordHash, ...passwordHistory].slice(0, 5);
+
     await usersCollection.updateOne(
       { _id: user._id },
       {
         $set: {
           passwordHash: newPasswordHash,
+          passwordHistory: newHistory, 
           updatedAt: new Date(),
           failedLoginAttempts: 0,
           lockedUntil: null,

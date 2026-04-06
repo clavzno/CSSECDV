@@ -33,7 +33,6 @@ export async function GET(request) {
     try {
         const session = await getCurrentSession();
         
-        // --- NEW: Log Access Control Failure (Requirement 2.4.7) ---
         if (!session) {
             await createLog({
                 userId: 'Unauthenticated',
@@ -60,10 +59,10 @@ export async function GET(request) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-                // Only send question text to the frontend, never answer hashes.
-                const safeQuestions = Array.isArray(user.securityQuestions)
-                    ? user.securityQuestions.map((q) => ({ question: q.question }))
-                    : [];
+        // Only send question text to the frontend, never answer hashes.
+        const safeQuestions = Array.isArray(user.securityQuestions)
+            ? user.securityQuestions.map((q) => ({ question: q.question }))
+            : [];
 
         await createLog({
           userId: session.userId,
@@ -75,14 +74,14 @@ export async function GET(request) {
         const userRole = String(user.role || '').toLowerCase();
         const requiresMfaPrompt = userRole === 'customer' && !isCustomerIpTrusted(user, clientIp, 'password_change');
 
-                return NextResponse.json(
-                    {
-                        mfaEnabled: Boolean(user.mfaEnabled),
-                        requiresMfaPrompt,
-                        questions: safeQuestions,
-                    },
-                    { status: 200 }
-                );
+        return NextResponse.json(
+            {
+                mfaEnabled: Boolean(user.mfaEnabled),
+                requiresMfaPrompt,
+                questions: safeQuestions,
+            },
+            { status: 200 }
+        );
     } catch (error) {
         console.error('Fetch Questions Error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
@@ -94,7 +93,6 @@ export async function POST(request) {
     try {
         const session = await getCurrentSession();
         
-        // --- NEW: Log Access Control Failure (Requirement 2.4.7) ---
         if (!session) {
             await createLog({
                 userId: 'Unauthenticated',
@@ -107,7 +105,6 @@ export async function POST(request) {
 
         const { answers, newPassword, mfaCode, backupCode } = await request.json();
 
-        // Audit Log for Missing Fields (Requirement 2.4.5)
         if (!newPassword) {
             await createLog({
                 userId: session.userId,
@@ -118,7 +115,6 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        // Audit Log for Password Policy Failure (Requirement 2.4.5)
         const passwordValidation = validatePassword(newPassword);
         if (!passwordValidation.isValid) {
             await createLog({
@@ -139,6 +135,39 @@ export async function POST(request) {
             return NextResponse.json({ error: 'User data corrupted' }, { status: 500 });
         }
 
+        // --- NEW: Requirement 2.1.11 (1-Day Old Passwords) ---
+        if (user.updatedAt) {
+            const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+            const timeSinceLastChange = Date.now() - new Date(user.updatedAt).getTime();
+            
+            if (timeSinceLastChange < ONE_DAY_MS) {
+                await createLog({
+                    userId: session.userId,
+                    actionType: 'PASSWORD_CHANGE_VALIDATION_FAIL',
+                    details: 'Blocked attempt to bypass password history by changing password too frequently.',
+                    priorityLevel: 'warning'
+                });
+                return NextResponse.json({ error: 'You must wait 24 hours before changing your password again.' }, { status: 400 });
+            }
+        }
+
+        // --- NEW: Requirement 2.1.10 (Prevent Password Reuse) ---
+        // Ensure history array exists (fallback to current hash if migrating old accounts)
+        const passwordHistory = Array.isArray(user.passwordHistory) ? user.passwordHistory : [user.passwordHash];
+
+        for (const oldHash of passwordHistory) {
+            if (oldHash && verifyPassword(newPassword, oldHash)) {
+                await createLog({
+                    userId: session.userId,
+                    actionType: 'PASSWORD_CHANGE_VALIDATION_FAIL',
+                    details: 'Password change failed: User attempted to reuse a historical password.',
+                    priorityLevel: 'warning'
+                });
+                return NextResponse.json({ error: 'You cannot reuse any of your last 5 passwords.' }, { status: 400 });
+            }
+        }
+
+        // --- Existing MFA / Identity Verification ---
         const userRole = String(user.role || '').toLowerCase();
         const customerRequiresIpMfa = userRole === 'customer' && !isCustomerIpTrusted(user, clientIp, 'password_change');
 
@@ -152,7 +181,6 @@ export async function POST(request) {
                 if (!mfaResult.ok) {
                     return NextResponse.json({ error: mfaResult.error }, { status: 403 });
                 }
-
                 await markCustomerIpTrusted(db, user._id, clientIp, 'password_change');
             }
         } else if (user.mfaEnabled) {
@@ -164,12 +192,10 @@ export async function POST(request) {
             if (!Array.isArray(answers) || answers.length !== 3) {
                 return NextResponse.json({ error: 'All security question answers are required.' }, { status: 400 });
             }
-
             if (!Array.isArray(user.securityQuestions) || user.securityQuestions.length !== 3) {
                 return NextResponse.json({ error: 'Security questions are not configured for this account.' }, { status: 400 });
             }
 
-            // Verify every answer against the stored hashes.
             for (let i = 0; i < user.securityQuestions.length; i++) {
                 const formattedInput = String(answers[i] || '').trim().toLowerCase();
                 const isCorrect = verifyPassword(formattedInput, user.securityQuestions[i].answerHash);
@@ -177,7 +203,7 @@ export async function POST(request) {
                 if (!isCorrect) {
                     await createLog({
                       userId: session.userId,
-                      eventType: 'PASSWORD_CHANGE_FAIL',
+                      eventType: 'PASSWORD_CHANGE_FAIL', // Matches your existing logger type
                       details: `${user.username} failed to change password. Reason: Incorrect security answers.`,
                       priorityLevel: 'warning',
                     });
@@ -186,11 +212,19 @@ export async function POST(request) {
             }
         }
 
+        // --- Finalize Update ---
         const newPasswordHash = hashPassword(newPassword);
+        const newHistory = [newPasswordHash, ...passwordHistory].slice(0, 5); // Keep only the last 5 hashes
 
         await db.collection('users').updateOne(
             { _id: new ObjectId(session.userId) },
-            { $set: { passwordHash: newPasswordHash, updatedAt: new Date() } }
+            { 
+                $set: { 
+                    passwordHash: newPasswordHash, 
+                    passwordHistory: newHistory, // Update history array
+                    updatedAt: new Date() 
+                } 
+            }
         );
 
         await createLog({

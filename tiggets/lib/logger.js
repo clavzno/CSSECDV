@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { ObjectId } from 'mongodb';
 
 export const LOG_EVENT_TYPES = {
-    // Admin & User Management (Original)
+    // Admin & User Management 
     ROLE_CHANGE: 'ROLE_CHANGE',
     BULK_ROLE_CHANGE: 'BULK_ROLE_CHANGE',
     USER_DELETION: 'USER_DELETION',
