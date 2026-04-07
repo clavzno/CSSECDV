@@ -40,10 +40,10 @@ export default function SystemLogsFilter({
             {showFilters && (
                 <div className="px-6 py-4 grid grid-cols-1 sm:grid-cols-5 gap-4 bg-[#e2e2e2] animate-in fade-in slide-in-from-top-2 border-b border-border-gray">
                     <input
-                        name="userId"
-                        value={filters.userId}
+                        name="username"
+                        value={filters.username}
                         onChange={handleFilterChange}
-                        placeholder="Filter by User ID"
+                        placeholder="Filter by Username"
                         className="bg-white border border-zinc-300 rounded-sm px-3 py-2 text-xs outline-none focus:border-[#3b5949]"
                     />
 

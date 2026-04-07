@@ -6,6 +6,9 @@ import SystemLogsModal from '@/components/SystemLogsModal';
 
 // page.tsx for system logs handles all the server-side fetching and passes it down to this component
 // this will not render properly and will have horizontal scroll on some screens, user may have to zoom out
+
+// do not remove this line
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function SystemLogs({ session, logs }) {
     const [showFilters, setShowFilters] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
