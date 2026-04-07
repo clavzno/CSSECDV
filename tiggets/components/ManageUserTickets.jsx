@@ -1,10 +1,13 @@
 "use client";
 
 /**
- * The file name could be deceiving btw
+ * The file name could be deceiving btw:
  * This file is for both managers and admins in the UserManagement Page.
  * Admins clicking admins can show their tickets (bale Manager View mode)
- * Admins clicking themselves lets them edit their profile - same things are allowed to be edited as ProfilePage
+ * Admins clicking themselves lets them edit their profile - same things are allowed to be edited as ProfilePage.
+ * Admins editing a manager or customer can edit everything.
+ * Managers who click manage can only see the tickets.
+ * Admins accessing other admins pages by doing url/[userid] will only be able to see the other admins' tickets.
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -43,7 +46,7 @@ export default function ManageUserTickets({
   });
 
   // flags
-  const isAdmin = String(role || '').toLowerCase() === 'admin';
+  // const isAdmin = String(role || '').toLowerCase() === 'admin';
   const isManager = String(targetUser?.role || '').toLowerCase() === 'manager';
   const canEditProfile = Boolean(targetUser?.canEditProfile);
   const isTargetAdmin = String(targetUser?.role || '').toLowerCase() === 'admin';

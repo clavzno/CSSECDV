@@ -169,7 +169,7 @@ export default function UserManagement({ role, users, session, pendingUsers }) {
       }
 
       if (data?.mailToUrl) {
-        window.location.href = data.mailToUrl;
+        window.open(data.mailToUrl, '_blank', 'noopener,noreferrer');
         return;
       }
 
@@ -215,7 +215,7 @@ export default function UserManagement({ role, users, session, pendingUsers }) {
       }
 
       if (data?.mailToUrl) {
-        window.location.href = data.mailToUrl;
+        window.open(data.mailToUrl, '_blank', 'noopener,noreferrer');
         return;
       }
 
