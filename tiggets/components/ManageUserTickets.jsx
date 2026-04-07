@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * The file name could be deceiving btw
+ * This file is for both managers and admins in the UserManagement Page.
+ * Admins clicking admins can show their tickets (bale Manager View mode)
+ * Admins clicking themselves lets them edit their profile - same things are allowed to be edited as ProfilePage
+ */
 import { useEffect, useMemo, useState } from 'react';
 import {
   Search,
@@ -36,9 +42,11 @@ export default function ManageUserTickets({
     role: ''
   });
 
+  // flags
   const isAdmin = String(role || '').toLowerCase() === 'admin';
   const isManager = String(targetUser?.role || '').toLowerCase() === 'manager';
   const canEditProfile = Boolean(targetUser?.canEditProfile);
+  const isTargetAdmin = String(targetUser?.role || '').toLowerCase() === 'admin';
 
   useEffect(() => {
     setProfileForm({
@@ -126,12 +134,18 @@ export default function ManageUserTickets({
       role: String(profileForm.role || '').trim().toLowerCase()
     };
 
+    if (!trimmedPayload.firstName || !trimmedPayload.lastName) {
+      alert('First name and last name are required.');
+      return;
+    }
+
     if (
-      !trimmedPayload.username ||
-      !trimmedPayload.email ||
-      !trimmedPayload.firstName ||
-      !trimmedPayload.lastName ||
-      !trimmedPayload.role
+      !isTargetAdmin &&
+      (
+        !trimmedPayload.username ||
+        !trimmedPayload.email ||
+        !trimmedPayload.role
+      )
     ) {
       alert('Username, email, first name, last name, and role are required.');
       return;
@@ -226,12 +240,13 @@ export default function ManageUserTickets({
             )}
           </div>
 
+          {/** Form portion */}
           <div className="grid grid-cols-1 gap-6 px-6 py-6 md:grid-cols-2">
             <div>
               <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Username
               </label>
-              {isEditingProfile ? (
+              {isEditingProfile && !isTargetAdmin ? (
                 <input
                   name="username"
                   type="text"
@@ -250,7 +265,7 @@ export default function ManageUserTickets({
               <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Email
               </label>
-              {isEditingProfile ? (
+              {isEditingProfile && !isTargetAdmin ? (
                 <input
                   name="email"
                   type="email"
@@ -307,7 +322,7 @@ export default function ManageUserTickets({
               <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Role
               </label>
-              {isEditingProfile ? (
+              {isEditingProfile && !isTargetAdmin ? (
                 <select
                   name="role"
                   value={profileForm.role}
