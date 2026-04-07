@@ -1,3 +1,4 @@
+// for admin/manager
 "use client";
 
 import { useRef, useState, useEffect } from "react";
@@ -31,7 +32,7 @@ export default function TicketView({ ticketId, role, ticket, currentUserId }) {
   const normalizedRole = role?.toLowerCase();
   const isManager = normalizedRole === "manager";
   const isAdmin = normalizedRole === "admin";
-  const isStaff = isManager || isAdmin; 
+  // const isStaff = isManager || isAdmin; 
   const canModifyTicket = isManager;
 
   const activeTicket = ticket ?? {

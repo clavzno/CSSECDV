@@ -5,7 +5,7 @@ import CustomerTicketView from '@/components/ViewTicket';
 import { getCurrentSession } from '@/lib/rbac';
 import { redirect } from 'next/navigation';
 import clientPromise from '@/lib/mongodb';
-import { ObjectId } from 'mongodb'; 
+import { ObjectId } from 'mongodb';
 
 type ViewTicketPageProps = {
     params: Promise<{
@@ -16,7 +16,7 @@ type ViewTicketPageProps = {
 type TicketReplyView = {
     id: string;
     author: string;
-    authorId: string; 
+    authorId: string;
     date: string;
     content: string;
     attachment: string | null;
@@ -83,14 +83,14 @@ function mapReply(reply: any): TicketReplyView {
     return {
         id: String(reply?.replyId ?? ''),
         author: String(reply?.senderId ?? ''),
-        authorId: String(reply?.senderId ?? ''), 
+        authorId: String(reply?.senderId ?? ''),
         date: formatDate(reply?.timestamp),
         content: String(reply?.message ?? ''),
         attachment:
             Array.isArray(reply?.attachments) && reply.attachments.length > 0
                 ? (reply.attachments[0])
                 : null,
-        isEdited: !!reply?.editedAt, 
+        isEdited: !!reply?.editedAt,
         editDate: reply?.editedAt ? formatDate(reply?.editedAt) : undefined,
     };
 }
@@ -130,7 +130,7 @@ async function resolveUserLabels(db: any, ticketData: TicketViewData, viewerRole
     }
 
     const uniqueIds = [...new Set(rawIds)];
-    
+
     const objectIds = uniqueIds
         .filter((id) => /^[0-9a-fA-F]{24}$/.test(id))
         .map((id) => new ObjectId(id));
@@ -140,7 +140,7 @@ async function resolveUserLabels(db: any, ticketData: TicketViewData, viewerRole
         .find(
             {
                 $or: [
-                    { _id: { $in: objectIds } }, 
+                    { _id: { $in: objectIds } },
                     { userId: { $in: uniqueIds } },
                     { username: { $in: uniqueIds } },
                 ],
@@ -150,7 +150,9 @@ async function resolveUserLabels(db: any, ticketData: TicketViewData, viewerRole
                     _id: 1,
                     username: 1,
                     userId: 1,
-                    role: 1, 
+                    role: 1,
+                    firstName: 1,
+                    lastName: 1,
                 },
             }
         )
@@ -161,18 +163,26 @@ async function resolveUserLabels(db: any, ticketData: TicketViewData, viewerRole
 
     for (const user of users) {
         const idStr = String(user._id);
-        const name = String(user.username ?? user.userId ?? idStr);
+        const username = String(user.username ?? user.userId ?? idStr).trim();
+        const firstName = String(user.firstName ?? '').trim();
+        const lastName = String(user.lastName ?? '').trim();
         const role = String(user.role ?? '').toLowerCase();
 
-        labelMap.set(idStr, name);
+        const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+        const displayLabel =
+            role !== 'customer' && fullName
+                ? `${fullName} (${username})`
+                : username;
+
+        labelMap.set(idStr, displayLabel);
         roleMap.set(idStr, role);
 
         if (user.userId) {
-            labelMap.set(String(user.userId), name);
+            labelMap.set(String(user.userId), displayLabel);
             roleMap.set(String(user.userId), role);
         }
         if (user.username) {
-            labelMap.set(String(user.username), name);
+            labelMap.set(String(user.username), displayLabel);
             roleMap.set(String(user.username), role);
         }
     }
@@ -190,7 +200,7 @@ async function resolveUserLabels(db: any, ticketData: TicketViewData, viewerRole
     return {
         ...ticketData,
         author: formatName(ticketData.author),
-        assignedTo: ticketData.assignedTo, 
+        assignedTo: ticketData.assignedTo,
         assignedToName: formatName(ticketData.assignedTo),
         replies: ticketData.replies.map((reply) => ({
             ...reply,

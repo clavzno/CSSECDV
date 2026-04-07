@@ -2,9 +2,18 @@ import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { getCurrentSession } from '@/lib/rbac';
 import { createLog } from '@/lib/logger';
-import crypto from 'crypto'; 
-import { ObjectId } from 'mongodb'; 
+import crypto from 'crypto';
+import { ObjectId } from 'mongodb';
 import { verifyUserMfa } from '@/lib/mfa';
+
+function buildStaffDisplayName(user, fallbackUsername = 'Customer Support') {
+    const firstName = String(user?.firstName || '').trim();
+    const lastName = String(user?.lastName || '').trim();
+    const username = String(user?.username || fallbackUsername).trim();
+
+    const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+    return fullName || username || 'Customer Support';
+}
 
 export async function PUT(request, { params }) {
     let session;
@@ -13,11 +22,11 @@ export async function PUT(request, { params }) {
         if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
         const resolvedParams = await params;
-        const ticketid = resolvedParams.ticketid; 
-        const updates = await request.json(); 
-        
+        const ticketid = resolvedParams.ticketid;
+        const updates = await request.json();
+
         const incomingReplyId = updates.replyId || 'N/A';
-        
+
         //SECURE FILE LOGGING
         // Keep the raw data for the tickets collection, but strip out the base64 string for the logs!
         const incomingAttachments = updates.attachments || [];
@@ -29,12 +38,12 @@ export async function PUT(request, { params }) {
             await createLog({
                 userId: session.userId,
                 actionType: isStatusChange ? 'TICKET_STATUS_CHANGE' : 'TICKET_EDITED',
-                ticketStatus: 'NA', 
+                ticketStatus: 'NA',
                 details: `Authorized edit by ${session.userId} fails due to validation issue.`,
                 priorityLevel: 'error',
-                assignedTo: 'N/A', 
+                assignedTo: 'N/A',
                 replyTo: incomingReplyId,
-                attachments: safeLogAttachments 
+                attachments: safeLogAttachments
             });
             return NextResponse.json({ error: 'Invalid update data' }, { status: 400 });
         }
@@ -64,7 +73,38 @@ export async function PUT(request, { params }) {
             }
         }
 
+        
         const currentAssignedManager = existingTicket.assignedTo || 'N/A';
+
+        // for updating the replies with status changes.
+        let actingUser = null;
+        try {
+            actingUser = await db.collection('users').findOne(
+                { _id: new ObjectId(String(session.userId)) },
+                {
+                    projection: {
+                        _id: 1,
+                        username: 1,
+                        firstName: 1,
+                        lastName: 1,
+                        role: 1,
+                    },
+                }
+            );
+        } catch {
+            actingUser = await db.collection('users').findOne(
+                { username: String(session.username || '') },
+                {
+                    projection: {
+                        _id: 1,
+                        username: 1,
+                        firstName: 1,
+                        lastName: 1,
+                        role: 1,
+                    },
+                }
+            );
+        }
 
         //CRITICAL CHECK: Security & Ownership 
         if (session.role === 'customer' && existingTicket.createdBy.toString() !== session.userId.toString()) {
@@ -77,7 +117,7 @@ export async function PUT(request, { params }) {
                 priorityLevel: 'critical',
                 assignedTo: currentAssignedManager,
                 replyTo: incomingReplyId,
-                attachments: safeLogAttachments 
+                attachments: safeLogAttachments
             });
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
@@ -85,8 +125,8 @@ export async function PUT(request, { params }) {
         //SECURITY: VALIDATE MANAGER ASSIGNMENT 
         if (updates.assignedTo) {
             try {
-                const targetUser = await db.collection('users').findOne({ 
-                    _id: new ObjectId(updates.assignedTo) 
+                const targetUser = await db.collection('users').findOne({
+                    _id: new ObjectId(updates.assignedTo)
                 });
 
                 if (!targetUser || (targetUser.role !== 'manager' && targetUser.role !== 'admin')) {
@@ -111,7 +151,7 @@ export async function PUT(request, { params }) {
         const actionReplyId = updates.replyId || updates.deleteReplyId;
         if (actionReplyId) {
             const targetReply = existingTicket.replies?.find(r => r.replyId === actionReplyId);
-            
+
             if (targetReply && session.role !== 'admin' && targetReply.senderId.toString() !== session.userId.toString()) {
                 await createLog({
                     userId: session.userId,
@@ -130,7 +170,7 @@ export async function PUT(request, { params }) {
         //NEW REPLY (FLAT CHAT)
         if (updates.newMessage) {
             const newReplyId = `rep_${crypto.randomUUID()}`;
-            
+
             const newReply = {
                 replyId: newReplyId,
                 senderId: session.userId,
@@ -138,12 +178,12 @@ export async function PUT(request, { params }) {
                 timestamp: new Date(),
                 editedAt: null,
                 editedBy: null,
-                attachments: incomingAttachments 
+                attachments: incomingAttachments
             };
 
             await db.collection('tickets').updateOne(
                 { ticketid },
-                { 
+                {
                     $push: { replies: newReply },
                     $set: { updatedAt: new Date() }
                 }
@@ -151,39 +191,39 @@ export async function PUT(request, { params }) {
 
             await createLog({
                 userId: session.userId,
-                actionType: 'TICKET_REPLIED', 
+                actionType: 'TICKET_REPLIED',
                 ticketStatus: existingTicket.status,
                 details: `${session.userId} added a new reply to ticket ${ticketid}.`,
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
-                replyTo: newReplyId, 
-                attachments: safeLogAttachments 
+                replyTo: newReplyId,
+                attachments: safeLogAttachments
             });
 
             return NextResponse.json({ message: 'Reply added successfully', reply: newReply }, { status: 200 });
         }
 
         // EDITING, DELETING, OR TICKET STATUS
-        
+
         // Ensure log timestamp perfectly matches database timestamp
-        const actionTimestamp = new Date(); 
+        const actionTimestamp = new Date();
 
         if (updates.replyId && updates.message) {
             await db.collection('tickets').updateOne(
                 { ticketid, "replies.replyId": updates.replyId },
-                { 
-                    $set: { 
+                {
+                    $set: {
                         "replies.$.message": updates.message,
-                        "replies.$.editedAt": actionTimestamp, 
-                        "replies.$.editedBy": session.userId, 
-                        updatedAt: new Date() 
-                    } 
+                        "replies.$.editedAt": actionTimestamp,
+                        "replies.$.editedBy": session.userId,
+                        updatedAt: new Date()
+                    }
                 }
             );
         } else if (updates.deleteReplyId) {
             await db.collection('tickets').updateOne(
                 { ticketid },
-                { 
+                {
                     $pull: { replies: { replyId: updates.deleteReplyId } },
                     $set: { updatedAt: new Date() }
                 }
@@ -200,8 +240,8 @@ export async function PUT(request, { params }) {
             });
             return NextResponse.json({ message: 'Reply deleted successfully' }, { status: 200 });
         } else {
-            const setPayload = { ...updates, updatedAt: new Date() };
-            
+            /** const setPayload = { ...updates, updatedAt: new Date() };
+
             if (updates.body || updates.subject) {
                 setPayload.editedAt = actionTimestamp;
                 setPayload.editedBy = session.userId;
@@ -210,6 +250,39 @@ export async function PUT(request, { params }) {
             await db.collection('tickets').updateOne(
                 { ticketid },
                 { $set: setPayload }
+            ); */
+            const setPayload = { ...updates, updatedAt: new Date() };
+
+            if (updates.body || updates.subject) {
+                setPayload.editedAt = actionTimestamp;
+                setPayload.editedBy = session.userId;
+            }
+
+            const updateOperation = { $set: setPayload };
+
+            if (updates.status && String(session.role || '').toLowerCase() === 'manager') {
+                // use this in message if you want the name documented
+                const managerDisplayName = buildStaffDisplayName(
+                    actingUser,
+                    String(session.username || 'Customer Support')
+                );
+
+                const statusReply = {
+                    replyId: `rep_${crypto.randomUUID()}`,
+                    senderId: session.userId,
+                    message: `Customer Support marked this ticket as ${updates.status}.`,
+                    timestamp: actionTimestamp,
+                    editedAt: null,
+                    editedBy: null,
+                    attachments: []
+                };
+
+                updateOperation.$push = { replies: statusReply };
+            }
+
+            await db.collection('tickets').updateOne(
+                { ticketid },
+                updateOperation
             );
         }
 
@@ -218,11 +291,11 @@ export async function PUT(request, { params }) {
             await createLog({
                 userId: session.userId,
                 actionType: 'TICKET_STATUS_CHANGE',
-                ticketStatus: updates.status, 
+                ticketStatus: updates.status,
                 details: `${session.userId} edited ticket status to ${updates.status}.`,
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
-                replyTo: 'N/A', 
+                replyTo: 'N/A',
                 attachments: safeLogAttachments
             });
         } else if (updates.replyId) {
@@ -233,20 +306,20 @@ export async function PUT(request, { params }) {
                 details: `${session.userId} edited reply ${updates.replyId} on ticket ${ticketid}`,
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
-                replyTo: updates.replyId, 
+                replyTo: updates.replyId,
                 attachments: safeLogAttachments,
-                editedAt: actionTimestamp, 
+                editedAt: actionTimestamp,
                 editedBy: session.userId
             });
         } else if (updates.assignedTo) {
             await createLog({
                 userId: session.userId,
-                actionType: 'TICKET_ASSIGNED', 
+                actionType: 'TICKET_ASSIGNED',
                 ticketStatus: existingTicket.status,
                 details: `${session.userId} assigned ticket ${ticketid} to manager ${updates.assignedTo}.`,
                 priorityLevel: 'info',
-                assignedTo: updates.assignedTo, 
-                replyTo: 'N/A', 
+                assignedTo: updates.assignedTo,
+                replyTo: 'N/A',
                 attachments: safeLogAttachments
             });
         } else {
@@ -257,7 +330,7 @@ export async function PUT(request, { params }) {
                 details: `${session.userId} has edited starting post in message ${ticketid}`,
                 priorityLevel: 'info',
                 assignedTo: currentAssignedManager,
-                replyTo: 'N/A', 
+                replyTo: 'N/A',
                 attachments: safeLogAttachments,
                 ...(updates.body || updates.subject ? { editedAt: actionTimestamp, editedBy: session.userId } : {})
             });
